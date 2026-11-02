@@ -149,12 +149,13 @@ body.ui .bar button{pointer-events:auto}
 @media (max-width:700px){.bar{justify-content:center}.b2{justify-content:center;bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}}
 /* Layout: orologio grande; il timer compare solo quando viene attivato */
 #wrapper{--h:min(52vh,34vw);--w:calc(var(--h)*1.145)}
-#wrapper.pomo{--h:min(40vh,31vw);--w:calc(var(--h)*1.145)}
-#wrapper:not(.pomo) .timer,#wrapper:not(.pomo) .tctl{display:none}
+#wrapper.pomo,#wrapper.ctm{--h:min(40vh,31vw);--w:calc(var(--h)*1.145)}
+#wrapper:not(.pomo) .timer:not(.ctimer),#wrapper:not(.pomo) .tctl:not(.ctctl){display:none}
+.ctimer[hidden],.ctctl[hidden]{display:none}
 .tctl .tx{width:30px;height:30px;border-radius:50%}
 @media (max-width:700px) and (orientation:portrait){
   #wrapper{--h:min(30vh,58vw);--w:calc(var(--h)*1.145)}
-  #wrapper.pomo{--h:min(20vh,46vw);--w:calc(var(--h)*1.145)}
+  #wrapper.pomo,#wrapper.ctm{--h:min(20vh,46vw);--w:calc(var(--h)*1.145)}
 }
 #blackout{position:fixed;inset:0;background:#000;z-index:9999;display:none;cursor:none}
 #blackout.show{display:block}
@@ -190,10 +191,13 @@ body.ui .rail .rb{pointer-events:auto}
 .chip b{font-weight:600;color:#9a968c;margin-left:.6em}
 /* --- Posizione nel brano --- */
 .player{flex-wrap:wrap}
-.seek{flex:0 0 100%;display:flex;align-items:center;gap:8px;font-size:11px;color:#8a8a8a;font-variant-numeric:tabular-nums}
+.seek{flex:0 0 100%;display:flex;align-items:center;gap:8px;font-size:10px;color:#5c5c5c;font-variant-numeric:tabular-nums}
 .seek[hidden]{display:none}
-.seek input[type=range]{flex:1;min-width:0;height:18px;margin:0;background:transparent;accent-color:#ece8dd;cursor:pointer}
-.seek .sk{width:auto;height:26px;padding:0 8px;border-radius:8px;font-size:11px;font-weight:600;color:#bdb9ae}
+.seek input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:14px;margin:0;background:transparent;cursor:pointer;--p:0%}
+.seek input[type=range]:focus{outline:none}
+.seek input[type=range]::-webkit-slider-runnable-track{height:2px;border-radius:2px;background:linear-gradient(90deg,#8a8a8a var(--p),#262626 var(--p))}
+.seek input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:8px;margin-top:-3px;border-radius:50%;background:#ece8dd;opacity:0;transition:opacity .15s}
+.seek:hover input[type=range]::-webkit-slider-thumb,.seek input[type=range]:focus-visible::-webkit-slider-thumb{opacity:1}
 #tcur{min-width:3.2ch;text-align:right}
 #tdur{min-width:3.2ch}
 /* --- Pannello timer e sveglie --- */
@@ -238,7 +242,9 @@ body.ui .rail .rb{pointer-events:auto}
 .plist .sw[aria-checked="true"]:hover{background:#fff}
 /* --- Finestra di sveglia / timer scaduto --- */
 #ringDlg{text-align:center;width:min(92vw,360px)}
-#ringDlg h2{font-size:44px;font-weight:700;color:#ece8dd;font-variant-numeric:tabular-nums;margin-bottom:4px}
+#ringClock{--h:88px;--w:calc(var(--h)*1.145);display:inline-flex;flex-direction:row;margin:4px 0 16px}
+#ringDlg h2{font-size:18px;font-weight:600;color:#ece8dd;margin-bottom:4px}
+#ringDlg h2:empty{display:none}
 #ringDlg p{font-size:15px;color:#bdb9ae;margin-bottom:6px}
 #ringDlg .more{font-size:12px;color:#8a8a8a;min-height:1.2em;margin-bottom:14px}
 #ringDlg .row{justify-content:center}
@@ -264,6 +270,15 @@ body.ui .rail .rb{pointer-events:auto}
     <div class="seg" id="pseg"></div>
     <button class="tx" id="pclose" aria-label="Chiudi timer" title="Chiudi timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
   </div>
+  <section class="timer ctimer" id="ctimer" aria-label="Timer" hidden>
+    <div class="card" id="cm"><div class="ampm" id="clabel"></div></div>
+    <div class="card" id="cs"></div>
+  </section>
+  <div class="tctl ctctl" id="ctctl" role="group" aria-label="Controlli timer" hidden>
+    <button class="tgo" id="cgo" aria-label="Avvia o ferma"><svg viewBox="0 0 24 24"><path id="cgop" d="M8 5v14l11-7z"/></svg></button>
+    <button class="tre" id="cre" aria-label="Riparti da capo" title="Riparti da capo"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+    <button class="tx" id="cx" aria-label="Elimina timer" title="Elimina timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
+  </div>
   <div class="chips" id="chips" hidden></div>
   <div class="player" id="player" hidden>
     <img id="cover" alt="" hidden>
@@ -275,9 +290,7 @@ body.ui .rail .rb{pointer-events:auto}
     </div>
     <div class="seek" id="seek" hidden>
       <span id="tcur">0:00</span>
-      <button class="ic sk" id="skb" aria-label="Indietro di 10 secondi">−10</button>
       <input type="range" id="sbar" min="0" max="1000" value="0" step="1" aria-label="Posizione nel brano">
-      <button class="ic sk" id="skf" aria-label="Avanti di 10 secondi">+10</button>
       <span id="tdur">0:00</span>
     </div>
   </div>
@@ -291,8 +304,6 @@ body.ui .rail .rb{pointer-events:auto}
     <button class="rb" id="clk" data-tip="Timer e sveglie" aria-label="Timer e sveglie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M12 10v3l2 2"/><path d="M7 4l-2.75 2"/><path d="M17 4l2.75 2"/></svg></button>
     <span class="rsep" id="rsep"></span>
     <button class="rb" id="spconn" data-tip="Collega Spotify" aria-label="Collega Spotify"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M8 11.973c2.5 -1.473 5.5 -.973 7.5 .527"/><path d="M9 15c1.5 -1 4 -1 5 .5"/><path d="M7 9c2 -1 6 -2 10 .5"/></svg></button>
-    <button class="rb" id="peconn" data-tip="Collega Pear Desktop" aria-label="Collega Pear Desktop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1 -5 -5l1.5 -1.5z"/><path d="M17 12l-5 -5l1.5 -1.5a3.536 3.536 0 1 1 5 5l-1.5 1.5z"/><path d="M3 21l2.5 -2.5"/><path d="M18.5 5.5l2.5 -2.5"/><path d="M10 11l-2 2"/><path d="M13 14l-2 2"/></svg></button>
-    <button class="rb" id="pelaunch" data-tip="Apri Pear Desktop" aria-label="Apri Pear Desktop" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"/><path d="M11 13l9 -9"/><path d="M15 4h5v5"/></svg></button>
     <button class="rb" id="ytconn" hidden></button>
     <button class="rb" id="upd" data-tip="Riavvia per aggiornare" aria-label="Riavvia per aggiornare" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg></button>
   </nav>
@@ -350,6 +361,7 @@ body.ui .rail .rb{pointer-events:auto}
 </dialog>
 
 <dialog id="ringDlg" aria-live="assertive">
+  <div class="clock" id="ringClock"><div class="card" id="rh"></div><div class="card" id="rm"></div></div>
   <h2 id="ringTitle"></h2>
   <p id="ringSub"></p>
   <div class="more" id="ringMore"></div>
@@ -640,7 +652,7 @@ body.ui .rail .rb{pointer-events:auto}
   var redirect = "https://127.0.0.1/";
   var dlg = document.getElementById('dlg');
   var btns = ['spprev','spplay','spnext'].map(function(i){ return document.getElementById(i); });
-  var spconn = document.getElementById('spconn'), ytconn = document.getElementById('ytconn'), peconn = document.getElementById('peconn'), pelaunch = document.getElementById('pelaunch');
+  var spconn = document.getElementById('spconn'), ytconn = document.getElementById('ytconn');
   function mk(label){ return {label: label, on: false, playing: false, title: '', artist: '', img: '', note: '', since: 0, last: 0, uri: '', pos: 0, dur: 0, posAt: 0}; }
   var sp = mk('Spotify'), yt = mk('YouTube Music'), pe = mk('Pear Desktop');
   sp.on = !!LS.get('sp_rt'); yt.on = !!LS.get('yt_tok'); pe.on = LS.get('pe_on') === '1';
@@ -667,9 +679,8 @@ body.ui .rail .rb{pointer-events:auto}
     document.getElementById('pp').setAttribute('d', a && a.playing ? PAUSE : PLAY);
     var any = sp.on || yt.on || pe.on;
     btns.forEach(function(b){ b.hidden = !any; });
-    spconn.hidden = sp.on; ytconn.hidden = true; peconn.hidden = pe.on;
-    pelaunch.hidden = !pe.on;
-    document.getElementById('rsep').hidden = false;
+    spconn.hidden = sp.on; ytconn.hidden = true;
+    document.getElementById('rsep').hidden = sp.on;
     drawSeek();
   }
   function msg(t){
@@ -871,6 +882,8 @@ body.ui .rail .rb{pointer-events:auto}
     if (!active) return;
     if (active === sp) {
       window.location.href = active.uri || 'spotify:';
+    } else if (active === pe) {
+      launchPear(); /* clic sul player di Pear = apre Pear Desktop */
     }
   };
 
@@ -881,8 +894,6 @@ body.ui .rail .rb{pointer-events:auto}
   on(btns[1], function(){ ctl('toggle'); });
   on(btns[2], function(){ ctl('next'); });
   on(ytconn, ytConnect);
-  on(peconn, peStart);
-  on(pelaunch, peOpen);
   on(spconn, function(){
     document.getElementById('ruri').textContent = redirect;
     document.getElementById('cid').value = LS.get('sp_cid') || '';
@@ -909,7 +920,7 @@ body.ui .rail .rb{pointer-events:auto}
     seekEl.hidden = !ok;
     if (!ok || dragging) return;
     var p = curPos(a);
-    sbar.value = Math.round(p / a.dur * 1000);
+    sbar.value = Math.round(p / a.dur * 1000); sbar.style.setProperty('--p', sbar.value / 10 + '%');
     tcur.textContent = fmtT(p); tdur.textContent = fmtT(a.dur);
   }
   setInterval(drawSeek, 500);
@@ -931,16 +942,13 @@ body.ui .rail .rb{pointer-events:auto}
   }
   sbar.addEventListener('input', function(){
     var a = pick(); if (!a) return;
-    dragging = true; tcur.textContent = fmtT(sbar.value / 1000 * a.dur);
+    dragging = true; sbar.style.setProperty('--p', sbar.value / 10 + '%'); tcur.textContent = fmtT(sbar.value / 1000 * a.dur);
   });
   sbar.addEventListener('change', function(){
     var a = pick(); dragging = false;
     if (a) seekTo(a, sbar.value / 1000 * a.dur);
   });
   sbar.addEventListener('blur', function(){ dragging = false; });
-  function skipBy(d){ var a = pick(); if (a && a.dur > 0) seekTo(a, curPos(a) + d); }
-  document.getElementById('skb').onclick = function(e){ e.stopPropagation(); skipBy(-10); };
-  document.getElementById('skf').onclick = function(e){ e.stopPropagation(); skipBy(10); };
 
   /* ---------- Avvio di Pear Desktop dall'eseguibile ---------- */
   function pearReachable(){
@@ -956,25 +964,13 @@ body.ui .rail .rb{pointer-events:auto}
       return false;
     }).catch(function(){ msg('Pear Desktop: impossibile avviarlo'); return false; });
   }
-  function peStart(){
-    msg('Pear Desktop: controllo se è aperto…');
-    pearReachable().then(function(up){
-      if (up){ peConnect(); return; }
-      msg('Pear Desktop: lo avvio…');
-      launchPear().then(function(ok){
-        if (!ok) return;
-        var tries = 0;
-        (function wait(){
-          pearReachable().then(function(up2){
-            if (up2){ peConnect(); return; }
-            if (++tries > 25){ msg('Pear Desktop: aperto, ma l’API Server non risponde. Attiva il plugin API Server'); return; }
-            setTimeout(wait, 1500);
-          });
-        })();
-      });
-    });
+  /* Collegamento automatico: se Pear è aperto e non ancora collegato, parte una sola richiesta per sessione */
+  var peAuto = false;
+  function autoPear(){
+    if (pe.on || peAuto) return;
+    pearReachable().then(function(up){ if (up && !pe.on && !peAuto){ peAuto = true; peConnect(); } });
   }
-  function peOpen(){ launchPear(); }
+  setInterval(autoPear, 5000); autoPear();
 
   var q = new URLSearchParams(location.search);
   if (q.get('code') && LS.get('sp_v')){
@@ -1055,6 +1051,29 @@ body.ui .rail .rb{pointer-events:auto}
   }
   function resetT(t){ t.run = false; t.left = t.total; saveT(); renderT(); tickTA(); }
   function delT(t){ timers.splice(timers.indexOf(t), 1); saveT(); renderT(); tickTA(); }
+  /* --- Timer in stile orologio: quello che scade per primo compare come cartellini flip --- */
+  var ctEl = byId('ctimer'), ctCtl = byId('ctctl'), ctGo = byId('cgop'), ctLabel = byId('clabel');
+  var cm = new Card(byId('cm')), cs = new Card(byId('cs'));
+  function primaryTimer(){
+    var run = timers.filter(function(t){ return t.run; }).sort(function(a, b){ return a.endAt - b.endAt; });
+    return run[0] || timers[0] || null;
+  }
+  function drawCT(){
+    var t = primaryTimer();
+    ctEl.hidden = ctCtl.hidden = !t;
+    wrapper.classList.toggle('ctm', !!t);
+    if (!t) return;
+    var sec = Math.max(0, Math.ceil(tLeft(t))), big = sec >= 3600; /* da un'ora in su mostra ore e minuti */
+    cm.set(pad(big ? Math.floor(sec / 3600) : Math.floor(sec / 60)));
+    cs.set(pad(big ? Math.floor(sec % 3600 / 60) : sec % 60));
+    var name = (t.label || 'Timer').slice(0, 12).toUpperCase();
+    ctLabel.textContent = big ? name + ' \u00b7 ORE' : name;
+    ctEl.classList.toggle('on', t.run);
+    ctGo.setAttribute('d', t.run ? G_PAUSE : G_PLAY);
+  }
+  byId('cgo').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) toggleT(t); };
+  byId('cre').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) resetT(t); };
+  byId('cx').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) delT(t); };
   var tList = byId('tList');
   function emptyLi(text){ var e = document.createElement('li'); e.className = 'empty'; e.textContent = text; return e; }
   function renderT(){
@@ -1166,7 +1185,9 @@ body.ui .rail .rb{pointer-events:auto}
   /* --- Squillo (timer scaduto o sveglia): si ripete finché non premi Stop --- */
   function ringRender(){
     var r = ringQ[0]; if (!r) return;
-    byId('ringTitle').textContent = r.kind === 'alarm' ? r.time : 'Timer scaduto';
+    var hm = r.kind === 'alarm' ? r.time.split(':') : ['00', '00'];
+    [['rh', hm[0]], ['rm', hm[1]]].forEach(function(x){ var el = byId(x[0]); el.innerHTML = ''; new Card(el).set(x[1]); });
+    byId('ringTitle').textContent = r.kind === 'alarm' ? '' : 'Timer scaduto';
     byId('ringSub').textContent = r.label || (r.kind === 'alarm' ? 'Sveglia' : 'Timer da ' + fmtHMS(r.total));
     byId('ringMore').textContent = ringQ.length > 1 ? 'Altri ' + (ringQ.length - 1) + ' in attesa' : '';
     byId('ringSnooze').hidden = r.kind !== 'alarm';
@@ -1236,7 +1257,8 @@ body.ui .rail .rb{pointer-events:auto}
   }
   function renderChips(){
     var items = [];
-    timers.forEach(function(t){ items.push([tName(t) + (t.run ? '' : ' (pausa)'), fmtHMS(tLeft(t))]); });
+    var pr = primaryTimer();
+    timers.forEach(function(t){ if (t === pr) return; items.push([tName(t) + (t.run ? '' : ' (pausa)'), fmtHMS(tLeft(t))]); });
     var nx = nextAlarm(absMin(zoned()));
     if (nx && nx.min <= 24 * 60) items.push(['Sveglia', nx.a.time]);
     var sig = items.map(function(i){ return i[0] + '|' + i[1]; }).join('~');
@@ -1259,7 +1281,7 @@ body.ui .rail .rb{pointer-events:auto}
     if (ch){ saveT(); renderT(); }
     checkAlarms(now);
     if (panel.open) updT();
-    renderChips();
+    drawCT(); renderChips();
   }
   setInterval(tickTA, 500);
   renderT(); renderA();
@@ -1267,7 +1289,7 @@ body.ui .rail .rb{pointer-events:auto}
   /* ---------- Aggiornamento automatico dell'interfaccia ---------- */
   var updBtn = byId('upd');
   function showUpd(u){
-    if (!u) return;
+    if (!u || !u.version) return;
     if (u.needsInstall){ msg('Versione ' + u.version + ' disponibile: richiede una nuova installazione (npm run dist)'); return; }
     updBtn.hidden = false; msg('Aggiornamento ' + u.version + ' scaricato: riavvia per applicarlo');
   }

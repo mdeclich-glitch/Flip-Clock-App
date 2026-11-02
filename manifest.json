@@ -1,8 +1,8 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "shellApi": 2,
   "files": {
-    "index.html": "d019c48d527a6a24aa3b5e978a6690f2a0069de33b58c3e5e498af9e18677ba6",
+    "index.html": "d193b616efc8834fd1aedd4097084c092cfad7b477ae270b59a50c21f1a7d22b",
     "mini.html": "ebf5a25fc6bd3939c42037afe1b07b4429ed1fc8c082b4915753c56433529ba5"
   }
 }
