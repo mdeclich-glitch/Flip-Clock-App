@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<!-- Favicon stilizzata in formato SVG nello stile dell'orologio Flip -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0a0a'/><rect x='10' y='10' width='80' height='80' rx='12' fill='%23141414'/><path d='M10 50h80' stroke='%23000' stroke-width='3'/><text x='50' y='72' font-family='Arial, sans-serif' font-weight='bold' font-size='52' fill='%23ffffff' text-anchor='middle'>12</text></svg>">
+<title>Flip Clock</title>
+<style>
+:root{
+  --bg:#000; --card:#141414; --top:#ece8dd; --bottom:#ece8dd; --label:#a8a8a8; --ui:#bdbdbd;
+  --h:min(40vh, 31vw); --w:calc(var(--h)*1.145);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--ui);overflow:hidden;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+
+/* Centratura globale del corpo e del wrapper */
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:none}
+body.ui{cursor:default}
+
+#wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--h)*.07);
+  width: 100%;
+  height: 100%;
+}
+
+/* Fullscreen CSS protetto a prova di ESC */
+.css-fullscreen {
+  position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
+  background: var(--bg) !important; z-index: 9999 !important;
+}
+
+.clock{display:flex;gap:calc(var(--h)*.045)}
+.card{position:relative;width:var(--w);height:var(--h);perspective:calc(var(--h)*4);
+  background:var(--card);border-radius:calc(var(--h)*.045)}
+.half{position:absolute;left:0;right:0;height:50%;overflow:hidden;background:var(--card);
+  backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.half span{position:absolute;left:0;right:0;height:200%;display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--h)*.68);font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.t{top:0;border-radius:calc(var(--h)*.045) calc(var(--h)*.045) 0 0;color:var(--top)}
+.t span{top:0}
+.b{bottom:0;border-radius:0 0 calc(var(--h)*.045) calc(var(--h)*.045);color:var(--bottom)}
+.b span{bottom:0}
+.flap-t{transform-origin:50% 100%;z-index:3}
+.flap-b{transform-origin:50% 0;transform:rotateX(90deg);z-index:2}
+.go .flap-t{animation:fall .3s ease-in forwards}
+.go .flap-b{animation:rise .3s .3s ease-out forwards}
+@keyframes fall{to{transform:rotateX(-90deg)}}
+@keyframes rise{to{transform:rotateX(0)}}
+.card::after{content:"";position:absolute;left:0;right:0;top:50%;height:max(2px,calc(var(--h)*.01));
+  margin-top:calc(max(2px,var(--h)*.01)/-2);background:var(--bg);z-index:5}
+.ampm{position:absolute;left:calc(var(--h)*.07);top:calc(var(--h)*.07);z-index:6;
+  font-size:calc(var(--h)*.085);font-weight:700;color:var(--label)}
+.bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);display:flex;flex-wrap:wrap;padding:0 12px;justify-content:center;gap:10px;
+  opacity:0;transition:opacity .3s;pointer-events:none}
+body.ui .bar{opacity:1;pointer-events:auto}
+button{font:inherit;font-size:14px;color:var(--ui);background:#161616;border:1px solid #2a2a2a;border-radius:10px;
+  padding:10px 16px;cursor:pointer}
+button:hover{background:#1f1f1f}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.hint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:0;right:0;text-align:center;font-size:13px;color:#777;
+  opacity:0;transition:opacity .3s}
+body.ui .hint{opacity:1}
+.timer{--h:min(15vh,12vw);--w:calc(var(--h)*1.145);display:flex;gap:calc(var(--h)*.045);opacity:.4;transition:opacity .4s}
+.timer.on{opacity:1}
+.timer .ampm{font-size:max(10px,calc(var(--h)*.1))}
+@media (max-width:700px) and (orientation:portrait){
+  :root{--h:min(22vh,50vw)}
+  .clock{flex-direction:column}
+  .timer{--h:min(11vh,24vw);--w:calc(var(--h)*1.145)}
+}
+.player{display:flex;align-items:center;gap:12px;width:min(92vw,400px);padding:8px 10px;background:var(--card);border-radius:14px;color:#fff;cursor:pointer}
+.player[hidden]{display:none}
+#cover{width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none}
+.meta{flex:1;min-width:0}
+.ttl{font-size:14px;font-weight:600;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.art{font-size:12px;color:#8a8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl{display:flex;gap:2px;flex:none}
+button.ic{width:38px;height:38px;padding:0;border:0;background:transparent;border-radius:10px;display:grid;place-items:center;color:#fff}
+button.ic:hover{background:#242424}
+button.ic svg{width:20px;height:20px;fill:currentColor}
+.np{max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  font-size:max(12px,calc(var(--h)*.055));color:#777;min-height:1.3em}
+.b2{bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
+@media (max-width:700px){.b2{bottom:calc(env(safe-area-inset-bottom,0px) + 120px)}}
+button[hidden]{display:none}
+
+dialog{cursor:default;background:#141414;color:#ddd;border:1px solid #2a2a2a;border-radius:14px;padding:22px;
+  width:min(92vw,420px);margin:auto;font-size:14px;line-height:1.5}
+dialog::backdrop{background:rgba(0,0,0,.85)}
+dialog h2{font-size:18px;margin-bottom:8px;color:#fff}
+dialog p{color:#999;margin-bottom:12px;font-size:13px}
+.quote-box{-webkit-user-select:none;user-select:none;cursor:default;background:#0a0a0a;border-left:3px solid #fff;padding:10px 12px;margin-bottom:14px;font-style:italic;color:#fff;border-radius:0 8px 8px 0}
+dialog input{width:100%;padding:10px;margin-bottom:14px;border-radius:8px;border:1px solid #2a2a2a;background:#0a0a0a;color:#fff;font:inherit}
+dialog .row{display:flex;gap:10px;justify-content:flex-end}
+/* --- Look flip clock analogico --- */
+.clock,.timer{padding:calc(var(--h)*.035);gap:calc(var(--h)*.03);border-radius:calc(var(--h)*.075);
+  background:linear-gradient(180deg,#1c1c1c,#0b0b0b);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+.card{background:#000;border-radius:calc(var(--h)*.05);box-shadow:0 0 0 1px #050505,0 2px 3px rgba(0,0,0,.7)}
+.half span{font-weight:700;letter-spacing:-.03em;text-shadow:0 1px 1px rgba(0,0,0,.6);z-index:1}
+.t{background:linear-gradient(180deg,#262626,#151515);border-radius:calc(var(--h)*.05) calc(var(--h)*.05) 0 0}
+.b{background:linear-gradient(180deg,#101010,#1c1c1c);border-radius:0 0 calc(var(--h)*.05) calc(var(--h)*.05)}
+.t::after,.b::after{content:"";position:absolute;inset:0;pointer-events:none}
+.t::after{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.45))}
+.b::after{background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(255,255,255,.03))}
+.flap-t::before,.flap-b::before{content:"";position:absolute;inset:0;background:#000;opacity:0;z-index:4;pointer-events:none}
+.flap-b::before{opacity:.75}
+.go .flap-t::before{animation:shadeIn .3s ease-in forwards}
+.go .flap-b::before{animation:shadeOut .3s .3s ease-out forwards}
+@keyframes shadeIn{to{opacity:.75}}
+@keyframes shadeOut{to{opacity:0}}
+.card::after{height:max(2px,calc(var(--h)*.012));margin-top:calc(max(2px,var(--h)*.012)/-2);background:#000;box-shadow:0 1px 0 rgba(255,255,255,.06)}
+.card::before{content:"";position:absolute;top:50%;left:calc(var(--h)*-.012);right:calc(var(--h)*-.012);height:calc(var(--h)*.07);
+  margin-top:calc(var(--h)*-.035);z-index:6;pointer-events:none;border-radius:2px;
+  background:linear-gradient(180deg,#444,#161616) left center/calc(var(--h)*.03) 100% no-repeat,
+             linear-gradient(180deg,#444,#161616) right center/calc(var(--h)*.03) 100% no-repeat}
+.ampm{color:#9a968c}
+.ampm span{display:inline-block;margin-right:.6em;letter-spacing:.1em;opacity:.3}
+.ampm span.on{opacity:1;color:#ece8dd}
+/* --- Controlli timer compatti --- */
+.tctl{display:flex;align-items:center;gap:6px;padding:5px;margin-top:calc(var(--h)*-.03);background:var(--card);
+  border:1px solid #232323;border-radius:999px;opacity:0;transition:opacity .3s;pointer-events:none}
+body.ui .tctl,.tctl.show{opacity:1;pointer-events:auto}
+.tctl button{border:0;background:transparent;color:#8a8a8a;padding:0;display:grid;place-items:center}
+.tctl button:hover{background:#242424;color:#fff}
+.tctl svg{width:18px;height:18px;fill:currentColor}
+.tctl .tgo{width:38px;height:38px;border-radius:50%;background:#ece8dd;color:#111}
+.tctl .tgo:hover{background:#fff;color:#000}
+.tctl .tre{width:34px;height:34px;border-radius:50%}
+.seg{display:flex;gap:2px;margin-left:2px;padding-left:8px;border-left:1px solid #2a2a2a}
+.tctl .seg button{padding:7px 11px;border-radius:999px;font-size:12px}
+.tctl .seg button[aria-pressed="true"]{background:#2a2a2a;color:#fff}
+.timer.ring{animation:blink 1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+/* Barra comandi su una sola riga: scheda a sinistra, collegamenti a destra */
+.bar{justify-content:flex-start}
+.b2{justify-content:flex-end;bottom:calc(env(safe-area-inset-bottom,0px) + 18px)}
+body.ui .bar{pointer-events:none}
+body.ui .bar button{pointer-events:auto}
+@media (max-width:700px){.bar{justify-content:center}.b2{justify-content:center;bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}}
+/* Layout: orologio grande; il timer compare solo quando viene attivato */
+#wrapper{--h:min(52vh,34vw);--w:calc(var(--h)*1.145)}
+#wrapper.pomo{--h:min(40vh,31vw);--w:calc(var(--h)*1.145)}
+#wrapper:not(.pomo) .timer,#wrapper:not(.pomo) .tctl{display:none}
+.tctl .tx{width:30px;height:30px;border-radius:50%}
+@media (max-width:700px) and (orientation:portrait){
+  #wrapper{--h:min(30vh,58vw);--w:calc(var(--h)*1.145)}
+  #wrapper.pomo{--h:min(20vh,46vw);--w:calc(var(--h)*1.145)}
+}
+#blackout{position:fixed;inset:0;background:#000;z-index:9999;display:none;cursor:none}
+#blackout.show{display:block}
+/* --- Colonna comandi a sinistra: pulsanti tondi con sola icona --- */
+.rail{position:fixed;left:calc(env(safe-area-inset-left,0px) + 16px);top:50%;transform:translateY(-50%);z-index:20;
+  display:flex;flex-direction:column;align-items:flex-start;gap:10px;opacity:0;transition:opacity .3s;pointer-events:none}
+body.ui .rail{opacity:1}
+body.ui .rail .rb{pointer-events:auto}
+.rb{position:relative;width:42px;height:42px;padding:0;border-radius:50%;border:1px solid #2a2a2a;background:#141414;color:#bdb9ae;
+  display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer}
+.rb svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rb:hover,.rb:focus-visible{background:#242424;color:#fff;border-color:#4a4a4a}
+.rb.act{background:#ece8dd;color:#111;border-color:#ece8dd}
+.rb::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;
+  font-size:12px;font-weight:400;color:#bdb9ae;background:#141414;border:1px solid #2a2a2a;padding:3px 9px;border-radius:6px;
+  opacity:0;pointer-events:none;transition:opacity .15s}
+.rb:hover::after,.rb:focus-visible::after{opacity:1}
+.rb .ap{display:flex;flex-direction:column;align-items:center;line-height:1.1;font-size:11px}
+.rb .ap span:last-child{color:#6f6c64}
+.rb .ap.pm span:first-child{color:#6f6c64}
+.rb .ap.pm span:last-child{color:inherit}
+.rsep{width:26px;height:1px;background:#2a2a2a;margin:2px 0 2px 8px}
+.rsep[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){
+  .go .flap-t,.go .flap-b{animation-duration:.01s;animation-delay:0s}
+}
+/* --- Palco: tutto ciò che resta sempre acceso si sposta insieme (protezione OLED) --- */
+#stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--h)*.07)}
+/* --- Timer e sveglie attivi, sotto l'orologio --- */
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:90vw}
+.chips[hidden]{display:none}
+.chip{font-size:max(12px,calc(var(--h)*.06));color:#6f6c64;font-variant-numeric:tabular-nums;padding:4px 12px;border:1px solid #1d1d1d;border-radius:999px}
+.chip b{font-weight:600;color:#9a968c;margin-left:.6em}
+/* --- Posizione nel brano --- */
+.player{flex-wrap:wrap}
+.seek{flex:0 0 100%;display:flex;align-items:center;gap:8px;font-size:11px;color:#8a8a8a;font-variant-numeric:tabular-nums}
+.seek[hidden]{display:none}
+.seek input[type=range]{flex:1;min-width:0;height:18px;margin:0;background:transparent;accent-color:#ece8dd;cursor:pointer}
+.seek .sk{width:auto;height:26px;padding:0 8px;border-radius:8px;font-size:11px;font-weight:600;color:#bdb9ae}
+#tcur{min-width:3.2ch;text-align:right}
+#tdur{min-width:3.2ch}
+/* --- Pannello timer e sveglie --- */
+#panel{padding:0;width:min(94vw,440px);overflow:hidden}
+.ptabs{display:flex;align-items:center;gap:4px;padding:12px 12px 0}
+.ptabs button{border:0;background:transparent;color:#8a8a8a;border-radius:999px;padding:8px 16px;font-weight:600}
+.ptabs button:hover{background:#1c1c1c}
+.ptabs button[aria-selected="true"]{background:#242424;color:#fff}
+.ptabs .pclose{margin-left:auto;width:34px;height:34px;padding:0;display:grid;place-items:center}
+.ptabs .pclose svg{width:16px;height:16px;fill:currentColor}
+.pbody{padding:16px 18px 18px;max-height:min(78vh,560px);overflow:auto}
+.pbody[hidden]{display:none}
+#panel input{width:100%;margin:0;padding:10px;border-radius:8px;border:1px solid #2a2a2a;background:#0a0a0a;color:#fff;font:inherit;font-variant-numeric:tabular-nums;color-scheme:dark}
+#panel input:focus-visible{outline:2px solid #ece8dd;outline-offset:1px}
+.tin{display:flex;gap:10px;margin-bottom:12px}
+.tin label{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#8a8a8a}
+.tin input{font-size:26px;font-weight:700;text-align:center;padding:8px 4px}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.presets button{padding:6px 12px;border-radius:999px;font-size:12px}
+#panel .primary{width:100%;background:#ece8dd;color:#111;border:0;font-weight:700;padding:12px;border-radius:12px}
+#panel .primary:hover{background:#fff}
+.ain{display:flex;gap:10px;margin-bottom:12px}
+#panel .ain input[type=time]{width:172px;flex:none;font-size:20px;font-weight:700;text-align:center}
+.days{display:flex;justify-content:space-between;margin:0 0 14px}
+.days button{width:36px;height:36px;padding:0;border-radius:50%;font-size:13px;font-weight:600}
+.days button[aria-pressed="true"]{background:#ece8dd;color:#111;border-color:#ece8dd}
+.plist{list-style:none;padding:0;margin:16px 0 0;display:flex;flex-direction:column;gap:8px}
+.plist li{display:flex;align-items:center;gap:8px;background:#0a0a0a;border:1px solid #1f1f1f;border-radius:12px;padding:10px 12px}
+.plist li.empty{justify-content:center;color:#6f6c64;font-size:13px;border-style:dashed}
+.pinfo{flex:1;min-width:0}
+.ptime{font-size:26px;font-weight:700;color:#ece8dd;font-variant-numeric:tabular-nums;line-height:1.1}
+.plist li.off .ptime{color:#6f6c64}
+.psub{font-size:12px;color:#8a8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plist .ib{width:34px;height:34px;padding:0;border:0;background:transparent;border-radius:50%;display:grid;place-items:center;color:#bdb9ae;flex:none}
+.plist .ib:hover{background:#242424;color:#fff}
+.plist .ib svg{width:18px;height:18px;fill:currentColor}
+.plist .sw{width:44px;height:26px;padding:0;border:0;border-radius:999px;background:#2a2a2a;position:relative;flex:none}
+.plist .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#8a8a8a;transition:transform .15s}
+.plist .sw:hover{background:#3a3a3a}
+.plist .sw[aria-checked="true"]{background:#ece8dd}
+.plist .sw[aria-checked="true"]::after{transform:translateX(18px);background:#111}
+.plist .sw[aria-checked="true"]:hover{background:#fff}
+/* --- Finestra di sveglia / timer scaduto --- */
+#ringDlg{text-align:center;width:min(92vw,360px)}
+#ringDlg h2{font-size:44px;font-weight:700;color:#ece8dd;font-variant-numeric:tabular-nums;margin-bottom:4px}
+#ringDlg p{font-size:15px;color:#bdb9ae;margin-bottom:6px}
+#ringDlg .more{font-size:12px;color:#8a8a8a;min-height:1.2em;margin-bottom:14px}
+#ringDlg .row{justify-content:center}
+#ringDlg .row button{padding:12px 22px;border-radius:12px;font-weight:600}
+#ringStop{background:#ece8dd;color:#111;border:0}
+#ringStop:hover{background:#fff}
+</style>
+</head>
+<body>
+<div id="wrapper">
+<div id="stage">
+  <main class="clock" aria-label="Orologio">
+    <div class="card" id="h"><div class="ampm" id="ampm"></div></div>
+    <div class="card" id="m"></div>
+  </main>
+  <section class="timer" id="timer" aria-label="Timer pomodoro">
+    <div class="card" id="pm"><div class="ampm" id="plabel"></div></div>
+    <div class="card" id="ps"></div>
+  </section>
+  <div class="tctl" id="tctl" role="group" aria-label="Controlli timer">
+    <button class="tgo" id="pstart" aria-label="Avvia timer"><svg viewBox="0 0 24 24"><path id="pgo" d="M8 5v14l11-7z"/></svg></button>
+    <button class="tre" id="preset" aria-label="Azzera timer" title="Azzera"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+    <div class="seg" id="pseg"></div>
+    <button class="tx" id="pclose" aria-label="Chiudi timer" title="Chiudi timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
+  </div>
+  <div class="chips" id="chips" hidden></div>
+  <div class="player" id="player" hidden>
+    <img id="cover" alt="" hidden>
+    <div class="meta"><div class="ttl" id="ttl" aria-live="polite"></div><div class="art" id="art"></div></div>
+    <div class="ctl">
+      <button class="ic" id="spprev" aria-label="Brano precedente"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="ic" id="spplay" aria-label="Play o pausa"><svg viewBox="0 0 24 24"><path id="pp" d="M8 5v14l11-7z"/></svg></button>
+      <button class="ic" id="spnext" aria-label="Brano successivo"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    </div>
+    <div class="seek" id="seek" hidden>
+      <span id="tcur">0:00</span>
+      <button class="ic sk" id="skb" aria-label="Indietro di 10 secondi">−10</button>
+      <input type="range" id="sbar" min="0" max="1000" value="0" step="1" aria-label="Posizione nel brano">
+      <button class="ic sk" id="skf" aria-label="Avanti di 10 secondi">+10</button>
+      <span id="tdur">0:00</span>
+    </div>
+  </div>
+</div><!-- /stage -->
+  <div class="hint" id="hint">Premi 'F' per entrare o uscire dallo schermo intero, oppure muovi il mouse per mostrare i comandi</div>
+  <nav class="rail" id="rail" aria-label="Comandi">
+    <button class="rb" id="fs" data-tip="Schermo intero" aria-label="Schermo intero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v-2a2 2 0 0 1 2 -2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2 -2v-2"/></svg></button>
+    <button class="rb" id="pomo" data-tip="Pomodoro" aria-label="Pomodoro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7h11"/><path d="M6.5 17h11"/><path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z"/><path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z"/></svg></button>
+    <button class="rb" id="mini" data-tip="Mini orologio" aria-label="Mini orologio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4"/><path d="M14 14m0 1a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1z"/></svg></button>
+    <button class="rb" id="fmt"></button>
+    <button class="rb" id="clk" data-tip="Timer e sveglie" aria-label="Timer e sveglie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M12 10v3l2 2"/><path d="M7 4l-2.75 2"/><path d="M17 4l2.75 2"/></svg></button>
+    <span class="rsep" id="rsep"></span>
+    <button class="rb" id="spconn" data-tip="Collega Spotify" aria-label="Collega Spotify"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M8 11.973c2.5 -1.473 5.5 -.973 7.5 .527"/><path d="M9 15c1.5 -1 4 -1 5 .5"/><path d="M7 9c2 -1 6 -2 10 .5"/></svg></button>
+    <button class="rb" id="peconn" data-tip="Collega Pear Desktop" aria-label="Collega Pear Desktop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1 -5 -5l1.5 -1.5z"/><path d="M17 12l-5 -5l1.5 -1.5a3.536 3.536 0 1 1 5 5l-1.5 1.5z"/><path d="M3 21l2.5 -2.5"/><path d="M18.5 5.5l2.5 -2.5"/><path d="M10 11l-2 2"/><path d="M13 14l-2 2"/></svg></button>
+    <button class="rb" id="pelaunch" data-tip="Apri Pear Desktop" aria-label="Apri Pear Desktop" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"/><path d="M11 13l9 -9"/><path d="M15 4h5v5"/></svg></button>
+    <button class="rb" id="ytconn" hidden></button>
+    <button class="rb" id="upd" data-tip="Riavvia per aggiornare" aria-label="Riavvia per aggiornare" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg></button>
+  </nav>
+</div>
+
+<!-- Finestra di dialogo per la sfida testuale e richiesta d'uscita -->
+<dialog id="lockDlg">
+  <h2>Uscita Schermo Intero</h2>
+  <p>Vuoi davvero uscire? Digita esattamente la frase motivazionale sottostante per confermare:</p>
+  <div class="quote-box" id="quoteText"></div>
+  <input id="challengeInput" placeholder="Trascrivi la frase qui..." autocomplete="off" spellcheck="false">
+  <div class="row">
+    <button id="dlgCancel">Annulla</button>
+    <button id="dlgSubmit" style="background:#fff; color:#000; font-weight:bold;">Conferma</button>
+  </div>
+</dialog>
+
+<dialog id="dlg">
+  <h2>Collega Spotify</h2>
+  <ol>
+    <li>Serve un account Spotify Premium. Vai su developer.spotify.com/dashboard e crea un’app.</li>
+    <li>Nei Redirect URI aggiungi esattamente:<code id="ruri"></code></li>
+    <li>Seleziona “Web API”, salva e incolla qui sotto il Client ID.</li>
+  </ol>
+  <input id="cid" placeholder="Client ID" autocomplete="off" spellcheck="false">
+  <div class="row"><button id="dno">Annulla</button><button id="dyes">Collega</button></div>
+</dialog>
+
+<dialog id="panel" aria-label="Timer e sveglie">
+  <div class="ptabs" role="tablist">
+    <button role="tab" id="tabT" aria-selected="true">Timer</button>
+    <button role="tab" id="tabA" aria-selected="false">Sveglie</button>
+    <button class="pclose" id="pnlClose" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
+  </div>
+  <section class="pbody" id="secT">
+    <div class="tin">
+      <label><input type="number" id="tH" min="0" max="99" value="0" inputmode="numeric" aria-label="Ore">ore</label>
+      <label><input type="number" id="tM" min="0" max="999" value="5" inputmode="numeric" aria-label="Minuti">min</label>
+      <label><input type="number" id="tS" min="0" max="59" value="0" inputmode="numeric" aria-label="Secondi">sec</label>
+    </div>
+    <input id="tLabel" placeholder="Nome (facoltativo)" maxlength="40" autocomplete="off" spellcheck="false">
+    <div class="presets" id="tPresets"></div>
+    <button class="primary" id="tAdd">Avvia timer</button>
+    <ul class="plist" id="tList"></ul>
+  </section>
+  <section class="pbody" id="secA" hidden>
+    <div class="ain">
+      <input type="time" id="aTime" value="07:00" aria-label="Orario">
+      <input id="aLabel" placeholder="Nome (facoltativo)" maxlength="40" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="days" id="aDays"></div>
+    <button class="primary" id="aAdd">Aggiungi sveglia</button>
+    <ul class="plist" id="aList"></ul>
+  </section>
+</dialog>
+
+<dialog id="ringDlg" aria-live="assertive">
+  <h2 id="ringTitle"></h2>
+  <p id="ringSub"></p>
+  <div class="more" id="ringMore"></div>
+  <div class="row">
+    <button id="ringSnooze">Posticipa 5 min</button>
+    <button id="ringStop" autofocus>Stop</button>
+  </div>
+</dialog>
+
+<div id="blackout" aria-hidden="true"></div>
+<script>
+(function(){
+  const { ipcRenderer } = require('electron');
+  var h24 = true, tz = 'Europe/Rome';
+  try { h24 = localStorage.getItem('flip24') !== '0'; } catch(e){}
+
+  function Card(el){
+    this.el = el; this.val = null;
+    el.insertAdjacentHTML('beforeend',
+      '<div class="half t"><span></span></div><div class="half b"><span></span></div>' +
+      '<div class="half t flap-t"><span></span></div><div class="half b flap-b"><span></span></div>');
+    var s = el.querySelectorAll('.half span');
+    this.st = s[0]; this.sb = s[1]; this.ft = s[2]; this.fb = s[3];
+  }
+  Card.prototype.set = function(v){
+    var self = this;
+    if (this.val === null){ this.st.textContent = this.sb.textContent = this.ft.textContent = this.fb.textContent = v; this.val = v; return; }
+    if (v === this.val) return;
+    var old = this.val; this.val = v;
+    this.st.textContent = v;
+    this.sb.textContent = old;
+    this.ft.textContent = old;
+    this.fb.textContent = v;
+    this.el.classList.remove('go'); void this.el.offsetWidth;
+    this.el.classList.add('go');
+    clearTimeout(this.t);
+    this.t = setTimeout(function(){
+      self.sb.textContent = v; self.ft.textContent = v;
+      self.el.classList.remove('go');
+    }, 620);
+  };
+
+  var hc = new Card(document.getElementById('h'));
+  var mc = new Card(document.getElementById('m'));
+  var ampm = document.getElementById('ampm');
+  var pad = function(n){ return (n < 10 ? '0' : '') + n; };
+
+  function parts(){
+    var d = new Date();
+    if (!tz) return {h:d.getHours(), m:d.getMinutes()};
+    try {
+      var r = {h:0, m:0};
+      new Intl.DateTimeFormat('en-GB',{hour:'numeric',minute:'numeric',hourCycle:'h23',timeZone:tz})
+        .formatToParts(d).forEach(function(x){
+          if (x.type === 'hour') r.h = (+x.value) % 24;
+          if (x.type === 'minute') r.m = +x.value;
+        });
+      return r;
+    } catch(e){ return {h:d.getHours(), m:d.getMinutes()}; }
+  }
+  function tick(){
+    var t = parts(), hr = t.h;
+    if (h24){ ampm.innerHTML = ''; }
+    else {
+      ampm.innerHTML = '<span' + (hr < 12 ? ' class="on"' : '') + '>AM</span><span' + (hr >= 12 ? ' class="on"' : '') + '>PM</span>';
+      hr = hr % 12 || 12;
+    }
+    hc.set(h24 ? pad(hr) : String(hr)); mc.set(pad(t.m));
+    document.title = pad(hr) + ':' + pad(t.m);
+  }
+  tick(); setInterval(tick, 1000);
+
+  var fmtBtn = document.getElementById('fmt');
+  function fmtLabel(){
+    var pm = new Date().getHours() >= 12;
+    fmtBtn.innerHTML = h24 ? '24' : '<span class="ap' + (pm ? ' pm' : '') + '"><span>AM</span><span>PM</span></span>';
+    fmtBtn.setAttribute('data-tip', h24 ? 'Formato 24 ore (passa a 12)' : 'Formato 12 ore (passa a 24)');
+    fmtBtn.setAttribute('aria-label', fmtBtn.getAttribute('data-tip'));
+  }
+  fmtBtn.onclick = function(e){
+    e.stopPropagation(); h24 = !h24;
+    try { localStorage.setItem('flip24', h24 ? '1' : '0'); } catch(x){}
+    fmtLabel(); tick();
+  };
+  fmtLabel();
+
+  /* Pomodoro */
+  var modes = [
+    {k:'FOCUS', s:25*60, n:'Focus 25 min', t:'Focus 25'},
+    {k:'PAUSA', s:5*60, n:'Pausa 5 min', t:'Pausa 5'},
+    {k:'PAUSA LUNGA', s:15*60, n:'Pausa lunga 15 min', t:'Lunga 15'}
+  ];
+  var mi = 0, left = modes[0].s, running = false, endAt = 0, actx = null;
+  var pm = new Card(document.getElementById('pm'));
+  var ps = new Card(document.getElementById('ps'));
+  var plabel = document.getElementById('plabel');
+  var pstart = document.getElementById('pstart');
+  var pseg = document.getElementById('pseg'), tctl = document.getElementById('tctl'), pgo = document.getElementById('pgo');
+  var ALARM_VOL = 0.9; /* 0-1: volume dell'allarme */
+  var G_PLAY = 'M8 5v14l11-7z', G_PAUSE = 'M6 5h4v14H6zM14 5h4v14h-4z';
+  var ptimer = document.getElementById('timer');
+  function draw(){
+    var s = Math.max(0, Math.ceil(left));
+    pm.set(pad(Math.floor(s / 60))); ps.set(pad(s % 60));
+    plabel.textContent = modes[mi].k;
+    pgo.setAttribute('d', running ? G_PAUSE : G_PLAY);
+    pstart.setAttribute('aria-label', running ? 'Ferma timer' : (left < modes[mi].s ? 'Riprendi timer' : 'Avvia timer'));
+    for (var k = 0; k < pseg.children.length; k++) pseg.children[k].setAttribute('aria-pressed', String(k === mi));
+    ptimer.classList.toggle('on', running);
+  }
+  function setMode(i){ mi = i; left = modes[i].s; running = false; draw(); }
+  /* Allarme: si ripete finché non avvii (o azzeri) un timer */
+  var alarmT = 0;
+  function beepOnce(){
+    ensureAudio(); if (!actx) return;
+    try {
+      if (actx.state === 'suspended') actx.resume();
+      [0, .22, .44].forEach(function(t){
+        var o = actx.createOscillator(), g = actx.createGain(), n = actx.currentTime + t;
+        o.type = 'square'; o.frequency.value = 1000;
+        o.connect(g); g.connect(actx.destination);
+        g.gain.setValueAtTime(.0001, n);
+        g.gain.exponentialRampToValueAtTime(ALARM_VOL, n + .01);
+        g.gain.setValueAtTime(ALARM_VOL, n + .14);
+        g.gain.exponentialRampToValueAtTime(.0001, n + .17);
+        o.start(n); o.stop(n + .18);
+      });
+    } catch(e){}
+  }
+  function startAlarm(){
+    stopAlarm(); beepOnce(); alarmT = setInterval(beepOnce, 1400);
+    ptimer.classList.add('ring'); tctl.classList.add('show');
+    wake(); /* se lo schermo era nero, si riaccende quando suona l'allarme */
+  }
+  function stopAlarm(){
+    clearInterval(alarmT); alarmT = 0;
+    ptimer.classList.remove('ring'); tctl.classList.remove('show');
+  }
+  setInterval(function(){
+    if (!running) return;
+    left = (endAt - Date.now()) / 1000;
+    if (left <= 0){ setMode(mi === 0 ? 1 : 0); startAlarm(); showUi(); return; }
+    draw();
+  }, 250);
+  modes.forEach(function(m, i){
+    var b = document.createElement('button');
+    b.textContent = m.t; b.title = m.n;
+    b.onclick = function(e){ e.stopPropagation(); stopAlarm(); setMode(i); };
+    pseg.appendChild(b);
+  });
+  function startTimer(){
+    stopAlarm();
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!actx) actx = new AC();
+      if (actx.state === 'suspended') actx.resume();
+    } catch(x){}
+    endAt = Date.now() + left * 1000; running = true; draw();
+  }
+  pstart.onclick = function(e){
+    e.stopPropagation();
+    if (running){ left = (endAt - Date.now()) / 1000; running = false; draw(); }
+    else startTimer();
+  };
+  /* Il timer compare solo quando lo attivi e sparisce quando lo chiudi */
+  var wrapper = document.getElementById('wrapper'), pomoBtn = document.getElementById('pomo');
+  pomoBtn.onclick = function(e){
+    e.stopPropagation();
+    if (wrapper.classList.contains('pomo')){ document.getElementById('pclose').onclick(e); return; }
+    wrapper.classList.add('pomo'); pomoBtn.classList.add('act');
+    setMode(0); startTimer();
+  };
+  document.getElementById('pclose').onclick = function(e){
+    e.stopPropagation(); stopAlarm(); setMode(0);
+    wrapper.classList.remove('pomo'); pomoBtn.classList.remove('act');
+  };
+  document.getElementById('preset').onclick = function(e){ e.stopPropagation(); stopAlarm(); setMode(mi); };
+  draw();
+
+  /* ---------- Gestione Schermo Intero & Sfida Motivazionale ---------- */
+  var motivationalQuotes = [
+    "Il successo è la somma di piccoli sforzi ripetuti.",
+    "Non fermarti quando sei stanco, fermati quando hai finito.",
+    "Credi in te stesso e tutto sarà possibile.",
+    "Ogni giorno è una nuova opportunità per fare meglio.",
+    "La disciplina è il ponte tra gli obiettivi e i risultati.",
+    "Fai oggi ciò che gli altri non fanno, per fare domani ciò che gli altri non possono."
+  ];
+  
+  var currentQuote = "";
+  var fsBtn = document.getElementById('fs');
+  var lockDlg = document.getElementById('lockDlg');
+  var quoteTextEl = document.getElementById('quoteText');
+  var challengeInput = document.getElementById('challengeInput');
+  var isCssFs = false;
+
+  var ICON_MAX = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v-2a2 2 0 0 1 2 -2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2 -2v-2"/></svg>', ICON_MIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 19v-2a2 2 0 0 1 2 -2h2"/><path d="M15 5v2a2 2 0 0 0 2 2h2"/><path d="M5 15h2a2 2 0 0 1 2 2v2"/><path d="M5 9h2a2 2 0 0 0 2 -2v-2"/></svg>';
+  function setFsUi(on){
+    fsBtn.innerHTML = on ? ICON_MIN : ICON_MAX;
+    fsBtn.setAttribute('data-tip', on ? 'Esci da schermo intero' : 'Schermo intero');
+    fsBtn.setAttribute('aria-label', on ? 'Esci da schermo intero' : 'Schermo intero');
+  }
+  function toggleFs(){
+    if (!isCssFs) {
+      document.getElementById('wrapper').classList.add('css-fullscreen');
+      isCssFs = true;
+      setFsUi(true);
+      document.getElementById('mini').hidden = true;
+      try { ipcRenderer.send('set-fullscreen', true); } catch(e){}
+    } else {
+      currentQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+      quoteTextEl.textContent = currentQuote;
+      challengeInput.value = "";
+      lockDlg.showModal();
+    }
+  }
+
+  // Tasto 'f' o 'F': entra o esce dallo schermo intero (l'uscita passa dalla sfida testuale)
+  document.addEventListener('keydown', function(e){
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    if (e.key === 'f' || e.key === 'F') {
+      if (lockDlg.open || dlg.open || panel.open || ringDlg.open) return;
+      e.preventDefault();
+      toggleFs();
+    }
+  });
+
+  // Sfida testuale: la frase non si può copiare e nel campo non si può incollare né trascinare testo
+  ['copy', 'cut', 'paste', 'contextmenu', 'dragstart', 'drop', 'selectstart'].forEach(function(ev){
+    lockDlg.addEventListener(ev, function(e){
+      if (ev === 'selectstart' && e.target === challengeInput) return; // si può comunque selezionare ciò che si digita
+      if (ev === 'selectstart' && !(e.target.closest && e.target.closest('#quoteText'))) return;
+      e.preventDefault();
+    });
+  });
+  challengeInput.addEventListener('beforeinput', function(e){
+    if (/^insertFrom/.test(e.inputType || '')) e.preventDefault();
+  });
+
+  document.getElementById('dlgCancel').onclick = function(){
+    lockDlg.close();
+  };
+
+  document.getElementById('dlgSubmit').onclick = function(){
+    if (challengeInput.value.trim() === currentQuote) {
+      document.getElementById('wrapper').classList.remove('css-fullscreen');
+      isCssFs = false;
+      setFsUi(false);
+      document.getElementById('mini').hidden = false;
+      lockDlg.close();
+      try { ipcRenderer.send('set-fullscreen', false); } catch(e){}
+    } else {
+      alert("Frase non corretta! Riprova a trascriverla esattamente.");
+      currentQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+      quoteTextEl.textContent = currentQuote;
+      challengeInput.value = "";
+    }
+  };
+
+  fsBtn.onclick = function(e){ e.stopPropagation(); toggleFs(); };
+  document.getElementById('mini').onclick = function(e){
+    e.stopPropagation();
+    try { ipcRenderer.send('open-mini'); } catch(x){}
+  };
+
+  var hideT;
+  function showUi(){
+    document.body.classList.add('ui');
+    clearTimeout(hideT);
+    hideT = setTimeout(function(){ document.body.classList.remove('ui'); }, 3000);
+  }
+  ['mousemove','touchstart','click'].forEach(function(ev){ document.addEventListener(ev, showUi, {passive:true}); });
+  showUi();
+
+  if ('wakeLock' in navigator){
+    var lock = function(){ try { navigator.wakeLock.request('screen').catch(function(){}); } catch(e){} };
+    lock(); document.addEventListener('visibilitychange', function(){ if (!document.hidden) lock(); });
+  }
+
+  /* Player unificato: Spotify + YouTube Music + Pear Desktop */
+  var LS = {
+    get: function(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+    set: function(k, v){ try { localStorage.setItem(k, v); } catch(e){} },
+    del: function(k){ try { localStorage.removeItem(k); } catch(e){} }
+  };
+  var PLAY = 'M8 5v14l11-7z', PAUSE = 'M6 5h4v14H6zM14 5h4v14h-4z';
+  var redirect = "https://127.0.0.1/";
+  var dlg = document.getElementById('dlg');
+  var btns = ['spprev','spplay','spnext'].map(function(i){ return document.getElementById(i); });
+  var spconn = document.getElementById('spconn'), ytconn = document.getElementById('ytconn'), peconn = document.getElementById('peconn'), pelaunch = document.getElementById('pelaunch');
+  function mk(label){ return {label: label, on: false, playing: false, title: '', artist: '', img: '', note: '', since: 0, last: 0, uri: '', pos: 0, dur: 0, posAt: 0}; }
+  var sp = mk('Spotify'), yt = mk('YouTube Music'), pe = mk('Pear Desktop');
+  sp.on = !!LS.get('sp_rt'); yt.on = !!LS.get('yt_tok'); pe.on = LS.get('pe_on') === '1';
+  var gnote = '', gt = 0;
+
+  function pick(){
+    var c = [sp, yt, pe].filter(function(x){ return x.on; });
+    if (!c.length) return null;
+    var p = c.filter(function(x){ return x.playing; });
+    if (p.length) return p.sort(function(a, b){ return b.since - a.since; })[0];
+    return c.sort(function(a, b){ return b.last - a.last; })[0];
+  }
+  function render(){
+    var a = pick(), t = '', ar = '', img = '';
+    if (gnote) t = gnote;
+    else if (a && a.title){ t = a.title; ar = a.artist + ' · ' + a.label; img = a.img; }
+    else if (a && a.note) t = a.note;
+    else if (a) t = 'Nessun brano in riproduzione';
+    document.getElementById('ttl').textContent = t;
+    document.getElementById('art').textContent = ar;
+    var c = document.getElementById('cover');
+    if (img){ c.src = img; c.hidden = false; } else { c.hidden = true; c.removeAttribute('src'); }
+    document.getElementById('player').hidden = !t;
+    document.getElementById('pp').setAttribute('d', a && a.playing ? PAUSE : PLAY);
+    var any = sp.on || yt.on || pe.on;
+    btns.forEach(function(b){ b.hidden = !any; });
+    spconn.hidden = sp.on; ytconn.hidden = true; peconn.hidden = pe.on;
+    pelaunch.hidden = !pe.on;
+    document.getElementById('rsep').hidden = false;
+    drawSeek();
+  }
+  function msg(t){
+    gnote = t; render(); clearTimeout(gt);
+    gt = setTimeout(function(){ gnote = ''; render(); }, 7000);
+  }
+  function setSrc(src, st, note){
+    var now = Date.now(), p = !!(st && st.playing);
+    if (p && !src.playing) src.since = now;
+    if (p) src.last = now;
+    src.playing = p;
+    src.title = st ? st.title : ''; src.artist = st ? st.artist : ''; src.img = st ? st.img : '';
+    src.uri = st ? (st.uri || '') : '';
+    src.pos = st && st.pos ? st.pos : 0; src.dur = st && st.dur ? st.dur : 0; src.posAt = now;
+    src.note = note || '';
+    render();
+  }
+
+  /* ---------- Spotify ---------- */
+  function b64(buf){
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function login(cid){
+    var a = new Uint8Array(48); crypto.getRandomValues(a);
+    var v = b64(a);
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)).then(function(h){
+      LS.set('sp_cid', cid); LS.set('sp_v', v);
+      location.href = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
+        response_type: 'code', client_id: cid, scope: 'user-read-playback-state user-modify-playback-state',
+        redirect_uri: redirect, code_challenge_method: 'S256', code_challenge: b64(h)
+      });
+    });
+  }
+  function tokenReq(p){
+    p.client_id = LS.get('sp_cid');
+    return fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams(p)
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.access_token) throw new Error('auth');
+      LS.set('sp_at', j.access_token);
+      if (j.refresh_token) LS.set('sp_rt', j.refresh_token);
+      LS.set('sp_exp', String(Date.now() + (j.expires_in - 60) * 1000));
+    });
+  }
+  function token(){
+    if (!LS.get('sp_rt')) return Promise.reject(new Error('nologin'));
+    if (Date.now() < +LS.get('sp_exp')) return Promise.resolve(LS.get('sp_at'));
+    return tokenReq({grant_type: 'refresh_token', refresh_token: LS.get('sp_rt')}).then(function(){ return LS.get('sp_at'); });
+  }
+  function spApi(path, method){
+    return token().then(function(t){
+      return fetch('https://api.spotify.com/v1/me/player' + path, {method: method || 'GET', headers: {Authorization: 'Bearer ' + t}});
+    });
+  }
+  /* Spotify conta solo se riproduce su questo computer (non su telefono, casse, altri PC).
+     Se il tuo dispositivo non viene riconosciuto, scrivi qui il suo nome esatto come appare in Spotify. */
+  var SPOTIFY_DEVICE = '';
+  function isLocalDevice(dv){
+    if (!dv) return false;
+    if (SPOTIFY_DEVICE) return (dv.name || '').toLowerCase() === SPOTIFY_DEVICE.toLowerCase();
+    return dv.type === 'Computer';
+  }
+  function pollSp(){
+    if (!sp.on) return;
+    spApi('').then(function(r){
+      if (r.status === 204){ setSrc(sp, null, 'Spotify: apri l’app su un dispositivo e avvia un brano'); return; }
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json().then(function(d){
+        if (!isLocalDevice(d.device)){ setSrc(sp, null, ''); return; }
+        var it = d.item, im = (it && it.album && it.album.images) || [];
+        setSrc(sp, {
+          playing: !!d.is_playing, title: it ? it.name : '',
+          artist: it ? (it.artists || []).map(function(x){ return x.name; }).join(', ') : '',
+          img: (im[1] || im[0] || {}).url,
+          uri: it ? it.uri : '',
+          pos: (d.progress_ms || 0) / 1000, dur: it ? (it.duration_ms || 0) / 1000 : 0
+        }, it ? '' : 'Spotify collegato');
+      });
+    }).catch(function(err){
+      if (err && err.message === 'auth'){
+        ['sp_at','sp_rt','sp_exp'].forEach(function(k){ LS.del(k); });
+        sp.on = false; setSrc(sp, null, ''); msg('Spotify: accesso scaduto, premi Collega Spotify');
+      } else setSrc(sp, null, 'Spotify: errore di connessione, riprovo…');
+    });
+  }
+  function spCmd(c){
+    var path = c === 'prev' ? '/previous' : c === 'next' ? '/next' : (sp.playing ? '/pause' : '/play');
+    spApi(path, c === 'toggle' ? 'PUT' : 'POST').then(function(r){
+      if (r.status === 404) msg('Spotify: nessun dispositivo attivo, avvia un brano dall’app');
+      else if (r.status === 403) msg('Spotify: per i comandi serve un account Premium');
+      setTimeout(pollSp, 500);
+    }).catch(function(){ msg('Spotify: errore, riprova'); });
+  }
+
+  /* ---------- YouTube Music Desktop (Companion Server) ---------- */
+  var YTB = 'http://127.0.0.1:9863/api/v1';
+  function ytFetch(path, method, body){
+    var h = {}, t = LS.get('yt_tok');
+    if (body) h['Content-Type'] = 'application/json';
+    if (t) h.Authorization = t;
+    return fetch(YTB + path, {method: method || 'GET', headers: h, body: body ? JSON.stringify(body) : undefined});
+  }
+  function ytConnect(){
+    var app = {appId: 'flipclock', appName: 'Flip Clock', appVersion: '1.0.0'};
+    msg('YouTube Music: richiedo il collegamento…');
+    ytFetch('/auth/requestcode', 'POST', app).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.code) throw new Error('code');
+      msg('YouTube Music: conferma il collegamento nella finestra dell’app (entro 30 secondi)');
+      return ytFetch('/auth/request', 'POST', {appId: app.appId, code: j.code});
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.token) throw new Error('token');
+      LS.set('yt_tok', j.token); yt.on = true; gnote = ''; render(); pollYt();
+    }).catch(function(){
+      msg('YouTube Music: collegamento non riuscito. Controlla che l’app sia aperta e Companion server attivo');
+    });
+  }
+  function pollYt(){
+    if (!yt.on) return;
+    ytFetch('/state').then(function(r){
+      if (r.status === 401 || r.status === 403){
+        LS.del('yt_tok'); yt.on = false; setSrc(yt, null, ''); msg('YouTube Music: accesso scaduto, ricollega'); return;
+      }
+      if (r.status === 429) return;
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json().then(function(s){
+        var v = s.video, im = (v && v.thumbnails) || [], ts = s.player ? s.player.trackState : -1;
+        setSrc(yt, {
+          playing: ts === 1 || ts === 2, title: v ? v.title : '', artist: v ? v.author : '',
+          img: im.length ? im[im.length - 1].url : ''
+        }, v ? '' : 'YouTube Music collegato');
+      });
+    }).catch(function(){ setSrc(yt, null, 'YouTube Music: app non raggiungibile, è aperta?'); });
+  }
+  function ytCmd(c){
+    var name = c === 'prev' ? 'previous' : c === 'next' ? 'next' : 'playPause';
+    ytFetch('/command', 'POST', {command: name}).then(function(){ setTimeout(pollYt, 500); })
+      .catch(function(){ msg('YouTube Music: app non raggiungibile'); });
+  }
+
+  /* ---------- Pear Desktop (plugin API Server) ---------- */
+  var PE = 'http://127.0.0.1:26538';
+  function pFetch(path, method, body){
+    var h = {}, t = LS.get('pe_tok');
+    if (t) h.Authorization = 'Bearer ' + t;
+    if (body) h['Content-Type'] = 'application/json';
+    return fetch(PE + '/api/v1' + path, {method: method || 'GET', headers: h, body: body ? JSON.stringify(body) : undefined});
+  }
+  function peConnect(){
+    LS.del('pe_tok');
+    msg('Pear Desktop: mi collego…');
+    pFetch('/song').then(function(r){
+      if (r.ok) return;
+      msg('Pear Desktop: conferma la richiesta nella finestra dell’app');
+      return fetch(PE + '/auth/flipclock', {method: 'POST'}).then(function(a){
+        if (!a.ok) throw new Error('auth');
+        return a.json();
+      }).then(function(j){
+        var t = j.accessToken || j.token;
+        if (!t) throw new Error('token');
+        LS.set('pe_tok', t);
+      });
+    }).then(function(){
+      LS.set('pe_on', '1'); pe.on = true; gnote = ''; render(); pollPe();
+    }).catch(function(){
+      msg('Pear Desktop: collegamento non riuscito. Controlla che sia aperto e con il plugin API Server attivo');
+    });
+  }
+  function pollPe(){
+    if (!pe.on) return;
+    pFetch('/song').then(function(r){
+      if (r.status === 204){ setSrc(pe, null, 'Pear Desktop collegato: avvia un brano'); return; }
+      if (r.status === 401 || r.status === 403){
+        LS.del('pe_tok'); LS.del('pe_on'); pe.on = false; setSrc(pe, null, ''); msg('Pear Desktop: accesso scaduto, ricollega'); return;
+      }
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json().then(function(s){
+        setSrc(pe, {
+          playing: !s.isPaused, 
+          title: s.title || '', 
+          artist: s.artist || '', 
+          img: s.imageSrc || '',
+          pos: +s.elapsedSeconds || 0, dur: +s.songDuration || 0
+        }, '');
+      });
+    }).catch(function(){ setSrc(pe, null, 'Pear Desktop: app non raggiungibile, è aperta?'); });
+  }
+  function peCmd(c){
+    var path = c === 'prev' ? '/previous' : c === 'next' ? '/next' : '/toggle-play';
+    pFetch(path, 'POST').then(function(){ setTimeout(pollPe, 500); })
+      .catch(function(){ msg('Pear Desktop: app non raggiungibile'); });
+  }
+
+  /* ---------- Apertura App Spotify al click sul box ---------- */
+  var playerEl = document.getElementById('player');
+  playerEl.onclick = function(e){
+    if (e.target.closest('.ctl, .seek')) return;
+    e.stopPropagation();
+    var active = pick();
+    if (!active) return;
+    if (active === sp) {
+      window.location.href = active.uri || 'spotify:';
+    }
+  };
+
+  /* ---------- Comandi: agiscono sulla sorgente attiva ---------- */
+  function ctl(c){ var a = pick(); if (!a) return; if (a === sp) spCmd(c); else if (a === yt) ytCmd(c); else peCmd(c); }
+  function on(b, f){ b.onclick = function(e){ e.stopPropagation(); f(); }; }
+  on(btns[0], function(){ ctl('prev'); });
+  on(btns[1], function(){ ctl('toggle'); });
+  on(btns[2], function(){ ctl('next'); });
+  on(ytconn, ytConnect);
+  on(peconn, peStart);
+  on(pelaunch, peOpen);
+  on(spconn, function(){
+    document.getElementById('ruri').textContent = redirect;
+    document.getElementById('cid').value = LS.get('sp_cid') || '';
+    dlg.showModal();
+  });
+  document.getElementById('dno').onclick = function(){ dlg.close(); };
+  document.getElementById('dyes').onclick = function(){
+    var c = document.getElementById('cid').value.trim();
+    if (c){ dlg.close(); login(c); }
+  };
+
+  /* ---------- Posizione nel brano (Spotify e Pear Desktop) ---------- */
+  var seekEl = document.getElementById('seek'), sbar = document.getElementById('sbar');
+  var tcur = document.getElementById('tcur'), tdur = document.getElementById('tdur');
+  var dragging = false;
+  function fmtT(sec){ sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + pad(sec % 60); }
+  function curPos(a){
+    var p = a.pos + (a.playing ? (Date.now() - a.posAt) / 1000 : 0);
+    return Math.min(Math.max(p, 0), a.dur);
+  }
+  function drawSeek(){
+    if (!seekEl) return;
+    var a = pick(), ok = !!a && (a === sp || a === pe) && a.dur > 0 && !gnote;
+    seekEl.hidden = !ok;
+    if (!ok || dragging) return;
+    var p = curPos(a);
+    sbar.value = Math.round(p / a.dur * 1000);
+    tcur.textContent = fmtT(p); tdur.textContent = fmtT(a.dur);
+  }
+  setInterval(drawSeek, 500);
+  function seekTo(a, sec){
+    sec = Math.min(Math.max(0, sec), Math.max(0, a.dur - 1));
+    a.pos = sec; a.posAt = Date.now(); drawSeek();               /* subito sullo schermo, poi conferma dal player */
+    if (a === sp){
+      spApi('/seek?position_ms=' + Math.round(sec * 1000), 'PUT').then(function(r){
+        if (r.status === 403) msg('Spotify: per spostarti nel brano serve un account Premium');
+        else if (r.status === 404) msg('Spotify: nessun dispositivo attivo');
+        setTimeout(pollSp, 500);
+      }).catch(function(){ msg('Spotify: errore, riprova'); });
+    } else if (a === pe){
+      pFetch('/seek-to', 'POST', {seconds: Math.floor(sec)}).then(function(r){
+        if (!r.ok) msg('Pear Desktop: spostamento non riuscito (' + r.status + ')');
+        setTimeout(pollPe, 500);
+      }).catch(function(){ msg('Pear Desktop: app non raggiungibile'); });
+    }
+  }
+  sbar.addEventListener('input', function(){
+    var a = pick(); if (!a) return;
+    dragging = true; tcur.textContent = fmtT(sbar.value / 1000 * a.dur);
+  });
+  sbar.addEventListener('change', function(){
+    var a = pick(); dragging = false;
+    if (a) seekTo(a, sbar.value / 1000 * a.dur);
+  });
+  sbar.addEventListener('blur', function(){ dragging = false; });
+  function skipBy(d){ var a = pick(); if (a && a.dur > 0) seekTo(a, curPos(a) + d); }
+  document.getElementById('skb').onclick = function(e){ e.stopPropagation(); skipBy(-10); };
+  document.getElementById('skf').onclick = function(e){ e.stopPropagation(); skipBy(10); };
+
+  /* ---------- Avvio di Pear Desktop dall'eseguibile ---------- */
+  function pearReachable(){
+    var c = new AbortController(), t = setTimeout(function(){ c.abort(); }, 1500);
+    return fetch(PE + '/api/v1/song', {signal: c.signal}).then(
+      function(){ clearTimeout(t); return true; },      /* qualsiasi risposta = app aperta */
+      function(){ clearTimeout(t); return false; });
+  }
+  function launchPear(){
+    return ipcRenderer.invoke('launch-pear').then(function(r){
+      if (r && r.ok) return true;
+      msg(r && r.error === 'not-found' ? 'Pear Desktop: eseguibile non trovato, controlla il percorso in main.js' : 'Pear Desktop: impossibile avviarlo');
+      return false;
+    }).catch(function(){ msg('Pear Desktop: impossibile avviarlo'); return false; });
+  }
+  function peStart(){
+    msg('Pear Desktop: controllo se è aperto…');
+    pearReachable().then(function(up){
+      if (up){ peConnect(); return; }
+      msg('Pear Desktop: lo avvio…');
+      launchPear().then(function(ok){
+        if (!ok) return;
+        var tries = 0;
+        (function wait(){
+          pearReachable().then(function(up2){
+            if (up2){ peConnect(); return; }
+            if (++tries > 25){ msg('Pear Desktop: aperto, ma l’API Server non risponde. Attiva il plugin API Server'); return; }
+            setTimeout(wait, 1500);
+          });
+        })();
+      });
+    });
+  }
+  function peOpen(){ launchPear(); }
+
+  var q = new URLSearchParams(location.search);
+  if (q.get('code') && LS.get('sp_v')){
+    tokenReq({grant_type: 'authorization_code', code: q.get('code'), redirect_uri: redirect, code_verifier: LS.get('sp_v')})
+      .then(function(){ LS.del('sp_v'); sp.on = true; render(); pollSp(); })
+      .catch(function(){ msg('Spotify: accesso non riuscito'); });
+    history.replaceState(null, '', location.pathname);
+  } else if (q.get('error')){
+    msg('Spotify: accesso annullato'); history.replaceState(null, '', location.pathname);
+  }
+  render(); pollSp(); pollYt(); pollPe();
+  setInterval(function(){ pollSp(); pollYt(); pollPe(); }, 5000);
+  /* ---------- Timer e sveglie ---------- */
+  var panel = document.getElementById('panel'), ringDlg = document.getElementById('ringDlg');
+  var ringQ = [], ringT = 0, ringAuto = 0;
+  var DAYS_IT = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  var DAY_ORDER = [1, 2, 3, 4, 5, 6, 0], DAY_LET = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+  var IC = {
+    play: 'M8 5v14l11-7z', pause: 'M6 5h4v14H6zM14 5h4v14h-4z',
+    reset: 'M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+    del: 'M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'
+  };
+  function byId(id){ return document.getElementById(id); }
+  function loadJ(k){ try { var v = JSON.parse(LS.get(k)); return Array.isArray(v) ? v : []; } catch(e){ return []; } }
+  var timers = loadJ('ft_timers'), alarms = loadJ('ft_alarms');
+  function saveT(){ LS.set('ft_timers', JSON.stringify(timers)); }
+  function saveA(){ LS.set('ft_alarms', JSON.stringify(alarms)); }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function ensureAudio(){
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!actx) actx = new AC();
+      if (actx.state === 'suspended') actx.resume();
+    } catch(e){}
+  }
+  function ib(path, label, fn){
+    var b = document.createElement('button'); b.className = 'ib'; b.title = label; b.setAttribute('aria-label', label);
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg>';
+    b.onclick = function(e){ e.stopPropagation(); fn(); };
+    return b;
+  }
+  function fmtHMS(sec){
+    sec = Math.max(0, Math.ceil(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60;
+    return h ? h + ':' + pad(m) + ':' + pad(x) : pad(m) + ':' + pad(x);
+  }
+  /* Ora e data nel fuso dell'orologio (lo stesso usato per le cifre) */
+  var zfmt = null;
+  try { if (tz) zfmt = new Intl.DateTimeFormat('en-GB', {timeZone: tz, hourCycle: 'h23', hour: 'numeric', minute: 'numeric', year: 'numeric', month: 'numeric', day: 'numeric'}); } catch(e){}
+  function zoned(){
+    var d = new Date();
+    if (zfmt){
+      try {
+        var o = {}; zfmt.formatToParts(d).forEach(function(x){ o[x.type] = x.value; });
+        return {h: (+o.hour) % 24, m: +o.minute, key: o.year + '-' + o.month + '-' + o.day};
+      } catch(e){}
+    }
+    return {h: d.getHours(), m: d.getMinutes(), key: d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()};
+  }
+  /* Minuti "a muro" dall'1/1/1970: giorno = floor(n/1440), minuto del giorno = n % 1440 */
+  function absMin(z){
+    var p = z.key.split('-');
+    return Math.floor(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 60000) + z.h * 60 + z.m;
+  }
+
+  /* --- Timer --- */
+  function tLeft(t){ return t.run ? Math.max(0, (t.endAt - Date.now()) / 1000) : t.left; }
+  function tName(t){ return t.label || 'Timer'; }
+  function addTimer(sec, label){
+    ensureAudio();
+    timers.push({id: uid(), label: label, total: sec, left: sec, endAt: Date.now() + sec * 1000, run: true});
+    saveT(); renderT(); tickTA();
+  }
+  function toggleT(t){
+    if (t.run){ t.left = tLeft(t); t.run = false; }
+    else { ensureAudio(); t.endAt = Date.now() + t.left * 1000; t.run = true; }
+    saveT(); renderT(); tickTA();
+  }
+  function resetT(t){ t.run = false; t.left = t.total; saveT(); renderT(); tickTA(); }
+  function delT(t){ timers.splice(timers.indexOf(t), 1); saveT(); renderT(); tickTA(); }
+  var tList = byId('tList');
+  function emptyLi(text){ var e = document.createElement('li'); e.className = 'empty'; e.textContent = text; return e; }
+  function renderT(){
+    tList.innerHTML = '';
+    if (!timers.length){ tList.appendChild(emptyLi('Nessun timer attivo')); return; }
+    timers.forEach(function(t){
+      var li = document.createElement('li'); li.setAttribute('data-tid', t.id); if (!t.run) li.className = 'off';
+      var info = document.createElement('div'); info.className = 'pinfo';
+      var tm = document.createElement('div'); tm.className = 'ptime'; tm.textContent = fmtHMS(tLeft(t));
+      var sb = document.createElement('div'); sb.className = 'psub';
+      sb.textContent = (t.label ? t.label + ' \u00b7 ' : '') + 'da ' + fmtHMS(t.total) + (t.run ? '' : ' \u00b7 in pausa');
+      info.appendChild(tm); info.appendChild(sb); li.appendChild(info);
+      li.appendChild(ib(t.run ? IC.pause : IC.play, t.run ? 'Metti in pausa' : 'Riprendi', function(){ toggleT(t); }));
+      li.appendChild(ib(IC.reset, 'Riparti da capo', function(){ resetT(t); }));
+      li.appendChild(ib(IC.del, 'Elimina', function(){ delT(t); }));
+      tList.appendChild(li);
+    });
+  }
+  function updT(){
+    timers.forEach(function(t){
+      var el = tList.querySelector('[data-tid="' + t.id + '"] .ptime');
+      if (el) el.textContent = fmtHMS(tLeft(t));
+    });
+  }
+  var tH = byId('tH'), tM = byId('tM'), tS = byId('tS'), tLabel = byId('tLabel');
+  function readInt(el, max){ var n = parseInt(el.value, 10); if (isNaN(n) || n < 0) n = 0; return Math.min(n, max); }
+  byId('tAdd').onclick = function(e){
+    e.stopPropagation();
+    var sec = readInt(tH, 99) * 3600 + readInt(tM, 999) * 60 + readInt(tS, 3599);
+    if (sec <= 0){ tM.focus(); return; }
+    addTimer(Math.min(sec, 99 * 3600), tLabel.value.trim().slice(0, 40));
+    tLabel.value = '';
+  };
+  [[1, '1 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min'], [60, '1 ora']].forEach(function(p){
+    var b = document.createElement('button'); b.textContent = p[1];
+    b.onclick = function(e){ e.stopPropagation(); tH.value = Math.floor(p[0] / 60); tM.value = p[0] % 60; tS.value = 0; };
+    byId('tPresets').appendChild(b);
+  });
+
+  /* --- Sveglie --- */
+  var aTime = byId('aTime'), aLabel = byId('aLabel'), aDays = byId('aDays'), aAdd = byId('aAdd'), aList = byId('aList');
+  var aSel = [], editId = null;
+  DAY_ORDER.forEach(function(d, i){
+    var b = document.createElement('button'); b.textContent = DAY_LET[i]; b.title = DAYS_IT[d];
+    b.setAttribute('aria-label', DAYS_IT[d]); b.setAttribute('aria-pressed', 'false'); b.setAttribute('data-d', d);
+    b.onclick = function(e){
+      e.stopPropagation();
+      var k = aSel.indexOf(d); if (k < 0) aSel.push(d); else aSel.splice(k, 1);
+      b.setAttribute('aria-pressed', String(k < 0));
+    };
+    aDays.appendChild(b);
+  });
+  function setDaysUi(){
+    [].forEach.call(aDays.children, function(b){ b.setAttribute('aria-pressed', String(aSel.indexOf(+b.getAttribute('data-d')) >= 0)); });
+  }
+  function daysText(a){
+    var d = a.days;
+    if (!d.length) return 'Una volta';
+    if (d.length === 7) return 'Ogni giorno';
+    if (d.length === 5 && [1, 2, 3, 4, 5].every(function(x){ return d.indexOf(x) >= 0; })) return 'Giorni feriali';
+    if (d.length === 2 && d.indexOf(0) >= 0 && d.indexOf(6) >= 0) return 'Fine settimana';
+    return DAY_ORDER.filter(function(x){ return d.indexOf(x) >= 0; }).map(function(x){ return DAYS_IT[x]; }).join(' ');
+  }
+  function resetAForm(){ editId = null; aSel = []; setDaysUi(); aLabel.value = ''; aAdd.textContent = 'Aggiungi sveglia'; }
+  aAdd.onclick = function(e){
+    e.stopPropagation();
+    if (!/^\d\d:\d\d$/.test(aTime.value)){ aTime.focus(); return; }
+    ensureAudio();
+    var days = aSel.slice().sort(), label = aLabel.value.trim().slice(0, 40);
+    var a = editId ? alarms.filter(function(x){ return x.id === editId; })[0] : null;
+    if (a){ a.time = aTime.value; a.label = label; a.days = days; a.on = true; a.snooze = 0; }
+    else alarms.push({id: uid(), time: aTime.value, label: label, days: days, on: true, snooze: 0});
+    alarms.sort(function(x, y){ return x.time < y.time ? -1 : x.time > y.time ? 1 : 0; });
+    saveA(); resetAForm(); renderA(); tickTA();
+  };
+  function renderA(){
+    aList.innerHTML = '';
+    if (!alarms.length){ aList.appendChild(emptyLi('Nessuna sveglia')); return; }
+    alarms.forEach(function(a){
+      var li = document.createElement('li'); if (!a.on) li.className = 'off';
+      var info = document.createElement('div'); info.className = 'pinfo'; info.style.cursor = 'pointer'; info.title = 'Modifica';
+      var tm = document.createElement('div'); tm.className = 'ptime'; tm.textContent = a.time;
+      var sb = document.createElement('div'); sb.className = 'psub'; sb.textContent = (a.label ? a.label + ' \u00b7 ' : '') + daysText(a);
+      info.appendChild(tm); info.appendChild(sb);
+      info.onclick = function(e){
+        e.stopPropagation();
+        editId = a.id; aTime.value = a.time; aLabel.value = a.label; aSel = a.days.slice(); setDaysUi();
+        aAdd.textContent = 'Salva modifiche';
+      };
+      var sw = document.createElement('button'); sw.className = 'sw'; sw.setAttribute('role', 'switch');
+      sw.setAttribute('aria-checked', String(a.on)); sw.setAttribute('aria-label', 'Sveglia ' + a.time + (a.on ? ' attiva' : ' spenta'));
+      sw.onclick = function(e){ e.stopPropagation(); a.on = !a.on; a.snooze = 0; if (a.on) ensureAudio(); saveA(); renderA(); tickTA(); };
+      li.appendChild(info); li.appendChild(sw);
+      li.appendChild(ib(IC.del, 'Elimina', function(){ alarms.splice(alarms.indexOf(a), 1); saveA(); renderA(); tickTA(); }));
+      aList.appendChild(li);
+    });
+  }
+
+  /* --- Pannello --- */
+  function showTab(t){
+    byId('secT').hidden = !t; byId('secA').hidden = t;
+    byId('tabT').setAttribute('aria-selected', String(t)); byId('tabA').setAttribute('aria-selected', String(!t));
+  }
+  byId('tabT').onclick = function(){ showTab(true); };
+  byId('tabA').onclick = function(){ showTab(false); };
+  byId('pnlClose').onclick = function(){ panel.close(); };
+  byId('clk').onclick = function(e){ e.stopPropagation(); renderT(); renderA(); panel.showModal(); };
+
+  /* --- Squillo (timer scaduto o sveglia): si ripete finché non premi Stop --- */
+  function ringRender(){
+    var r = ringQ[0]; if (!r) return;
+    byId('ringTitle').textContent = r.kind === 'alarm' ? r.time : 'Timer scaduto';
+    byId('ringSub').textContent = r.label || (r.kind === 'alarm' ? 'Sveglia' : 'Timer da ' + fmtHMS(r.total));
+    byId('ringMore').textContent = ringQ.length > 1 ? 'Altri ' + (ringQ.length - 1) + ' in attesa' : '';
+    byId('ringSnooze').hidden = r.kind !== 'alarm';
+  }
+  function ringStart(r){
+    ringQ.push(r); ringRender();
+    if (!ringT){ beepOnce(); ringT = setInterval(beepOnce, 1400); }
+    clearTimeout(ringAuto);
+    ringAuto = setTimeout(function(){ ringQ.length = 0; ringEnd(); }, 10 * 60000); /* dopo 10 minuti smette da sola */
+    if (!ringDlg.open) ringDlg.showModal();
+    try { ipcRenderer.send('ring-alert'); } catch(e){}
+    wake(); showUi();
+  }
+  function ringEnd(){
+    if (ringQ.length){ ringRender(); return; }
+    clearInterval(ringT); ringT = 0; clearTimeout(ringAuto);
+    if (ringDlg.open) ringDlg.close();
+  }
+  byId('ringStop').onclick = function(){ ringQ.shift(); ringEnd(); };
+  byId('ringSnooze').onclick = function(){
+    var r = ringQ.shift(), a = r && alarms.filter(function(x){ return x.id === r.id; })[0];
+    if (a){ a.snooze = Date.now() + 5 * 60000; saveA(); renderA(); }
+    ringEnd();
+  };
+  ringDlg.addEventListener('cancel', function(e){ e.preventDefault(); ringQ.shift(); ringEnd(); });
+
+  /* --- Motore: scorre ogni minuto trascorso dall'ultimo controllo, così una sveglia non si perde
+         se il PC è stato in sospensione (recupero massimo: 5 minuti) --- */
+  var lastAbs = +LS.get('ft_last') || 0;
+  function fireAlarm(a){ ringStart({kind: 'alarm', id: a.id, label: a.label, time: a.time}); }
+  function checkAlarms(now){
+    var abs = absMin(zoned()), ch = false;
+    if (!lastAbs) lastAbs = abs;
+    if (abs - lastAbs > 5) lastAbs = abs - 5;
+    alarms.forEach(function(a){
+      if (a.snooze && now >= a.snooze){ a.snooze = 0; ch = true; fireAlarm(a); }
+    });
+    for (var n = lastAbs + 1; n <= abs; n++){
+      var mod = n % 1440, dow = (Math.floor(n / 1440) + 4) % 7; /* 1/1/1970 era un giovedì */
+      alarms.forEach(function(a){
+        if (!a.on) return;
+        var hm = a.time.split(':');
+        if ((+hm[0]) * 60 + (+hm[1]) !== mod) return;
+        if (a.days.length && a.days.indexOf(dow) < 0) return;
+        if (!a.days.length) a.on = false; /* sveglia "una volta": si spegne dopo aver suonato */
+        ch = true; fireAlarm(a);
+      });
+    }
+    if (abs > lastAbs){ lastAbs = abs; LS.set('ft_last', String(lastAbs)); }
+    if (ch){ saveA(); renderA(); }
+  }
+  /* --- Etichette sotto l'orologio --- */
+  var chipsEl = byId('chips'), chipSig = '';
+  function nextAlarm(abs){
+    var best = null, bestMin = 1e9;
+    alarms.forEach(function(a){
+      if (!a.on) return;
+      var hm = a.time.split(':'), at = (+hm[0]) * 60 + (+hm[1]), day0 = Math.floor(abs / 1440);
+      for (var d = 0; d < 8; d++){
+        var cand = (day0 + d) * 1440 + at, dow = (day0 + d + 4) % 7;
+        if (cand <= abs || (a.days.length && a.days.indexOf(dow) < 0)) continue;
+        if (cand - abs < bestMin){ bestMin = cand - abs; best = a; }
+        break;
+      }
+    });
+    return best ? {a: best, min: bestMin} : null;
+  }
+  function renderChips(){
+    var items = [];
+    timers.forEach(function(t){ items.push([tName(t) + (t.run ? '' : ' (pausa)'), fmtHMS(tLeft(t))]); });
+    var nx = nextAlarm(absMin(zoned()));
+    if (nx && nx.min <= 24 * 60) items.push(['Sveglia', nx.a.time]);
+    var sig = items.map(function(i){ return i[0] + '|' + i[1]; }).join('~');
+    if (sig === chipSig) return;
+    chipSig = sig; chipsEl.innerHTML = '';
+    items.forEach(function(i){
+      var c = document.createElement('span'); c.className = 'chip'; c.appendChild(document.createTextNode(i[0]));
+      var b = document.createElement('b'); b.textContent = i[1]; c.appendChild(b); chipsEl.appendChild(c);
+    });
+    chipsEl.hidden = !items.length;
+  }
+  function tickTA(){
+    var now = Date.now(), ch = false;
+    timers.slice().forEach(function(t){
+      if (t.run && t.endAt <= now){
+        timers.splice(timers.indexOf(t), 1); ch = true;
+        ringStart({kind: 'timer', label: t.label, total: t.total});
+      }
+    });
+    if (ch){ saveT(); renderT(); }
+    checkAlarms(now);
+    if (panel.open) updT();
+    renderChips();
+  }
+  setInterval(tickTA, 500);
+  renderT(); renderA();
+
+  /* ---------- Aggiornamento automatico dell'interfaccia ---------- */
+  var updBtn = byId('upd');
+  function showUpd(u){
+    if (!u) return;
+    if (u.needsInstall){ msg('Versione ' + u.version + ' disponibile: richiede una nuova installazione (npm run dist)'); return; }
+    updBtn.hidden = false; msg('Aggiornamento ' + u.version + ' scaricato: riavvia per applicarlo');
+  }
+  ipcRenderer.on('update-ready', function(e, u){ showUpd(u); });
+  ipcRenderer.invoke('update-status').then(showUpd).catch(function(){});
+  updBtn.onclick = function(e){ e.stopPropagation(); ipcRenderer.send('restart-app'); };
+
+  /* ---------- Spostamento impercettibile contro il burn-in OLED ----------
+     Posizione = ampiezza * sin(2*pi*t / periodo): al massimo 1 px ogni ~30 secondi, sempre su pixel interi
+     (le cifre restano nitide). Due periodi diversi (23 e 31 minuti) fanno percorrere una figura che non si ripete. */
+  var SHIFT_X = 8, SHIFT_Y = 6; /* ampiezza massima in pixel: metti 0 per disattivare */
+  var stage = byId('stage'), lastShift = '';
+  function pixelShift(){
+    var t = Date.now() / 1000;
+    var x = Math.round(SHIFT_X * Math.sin(2 * Math.PI * t / 1380));
+    var y = Math.round(SHIFT_Y * Math.sin(2 * Math.PI * t / 1860));
+    var v = 'translate(' + x + 'px,' + y + 'px)';
+    if (v !== lastShift){ lastShift = v; stage.style.transform = v; }
+  }
+  pixelShift(); setInterval(pixelShift, 5000);
+
+  /* Schermo nero dopo un po' di inattività (protegge soprattutto gli schermi OLED) */
+  var IDLE_MIN = 5; /* minuti senza mouse, tastiera o tocco */
+  var blackout = document.getElementById('blackout'), lastAct = Date.now();
+  function wake(){ lastAct = Date.now(); blackout.classList.remove('show'); }
+  ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function(ev){
+    document.addEventListener(ev, function(e){
+      if (blackout.classList.contains('show')){
+        wake();
+        if (ev !== 'mousemove'){ e.stopPropagation(); e.preventDefault(); } /* il primo tasto o clic serve solo a riaccendere */
+      } else lastAct = Date.now();
+    }, true);
+  });
+  setInterval(function(){
+    if (blackout.classList.contains('show')) return;
+    if (alarmT) return;                                    /* mentre suona l'allarme resta acceso */
+    if ((lockDlg && lockDlg.open) || (dlg && dlg.open) || (panel && panel.open) || ringQ.length) return;
+    if (Date.now() - lastAct > IDLE_MIN * 60000) blackout.classList.add('show');
+  }, 5000);
+})();
+</script>
+</body>
+</html>

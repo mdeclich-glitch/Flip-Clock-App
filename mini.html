@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Mini orologio</title>
+<style>
+:root{
+  --bg:#000; --card:#141414; --top:#ece8dd; --bottom:#ece8dd; --label:#a8a8a8; --ui:#bdbdbd;
+  --h:min(40vh, 31vw); --w:calc(var(--h)*1.145);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--ui);overflow:hidden;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+
+/* Centratura globale del corpo e del wrapper */
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:none}
+body.ui{cursor:default}
+
+#wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--h)*.07);
+  width: 100%;
+  height: 100%;
+}
+
+/* Fullscreen CSS protetto a prova di ESC */
+.css-fullscreen {
+  position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
+  background: var(--bg) !important; z-index: 9999 !important;
+}
+
+.clock{display:flex;gap:calc(var(--h)*.045)}
+.card{position:relative;width:var(--w);height:var(--h);perspective:calc(var(--h)*4);
+  background:var(--card);border-radius:calc(var(--h)*.045)}
+.half{position:absolute;left:0;right:0;height:50%;overflow:hidden;background:var(--card);
+  backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.half span{position:absolute;left:0;right:0;height:200%;display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--h)*.68);font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.t{top:0;border-radius:calc(var(--h)*.045) calc(var(--h)*.045) 0 0;color:var(--top)}
+.t span{top:0}
+.b{bottom:0;border-radius:0 0 calc(var(--h)*.045) calc(var(--h)*.045);color:var(--bottom)}
+.b span{bottom:0}
+.flap-t{transform-origin:50% 100%;z-index:3}
+.flap-b{transform-origin:50% 0;transform:rotateX(90deg);z-index:2}
+.go .flap-t{animation:fall .3s ease-in forwards}
+.go .flap-b{animation:rise .3s .3s ease-out forwards}
+@keyframes fall{to{transform:rotateX(-90deg)}}
+@keyframes rise{to{transform:rotateX(0)}}
+.card::after{content:"";position:absolute;left:0;right:0;top:50%;height:max(2px,calc(var(--h)*.01));
+  margin-top:calc(max(2px,var(--h)*.01)/-2);background:var(--bg);z-index:5}
+.ampm{position:absolute;left:calc(var(--h)*.07);top:calc(var(--h)*.07);z-index:6;
+  font-size:calc(var(--h)*.085);font-weight:700;color:var(--label)}
+.bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);display:flex;flex-wrap:wrap;padding:0 12px;justify-content:center;gap:10px;
+  opacity:0;transition:opacity .3s;pointer-events:none}
+body.ui .bar{opacity:1;pointer-events:auto}
+button{font:inherit;font-size:14px;color:var(--ui);background:#161616;border:1px solid #2a2a2a;border-radius:10px;
+  padding:10px 16px;cursor:pointer}
+button:hover{background:#1f1f1f}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.hint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:0;right:0;text-align:center;font-size:13px;color:#777;
+  opacity:0;transition:opacity .3s}
+body.ui .hint{opacity:1}
+.timer{--h:min(15vh,12vw);--w:calc(var(--h)*1.145);display:flex;gap:calc(var(--h)*.045);opacity:.4;transition:opacity .4s}
+.timer.on{opacity:1}
+.timer .ampm{font-size:max(10px,calc(var(--h)*.1))}
+@media (max-width:700px) and (orientation:portrait){
+  :root{--h:min(22vh,50vw)}
+  .clock{flex-direction:column}
+  .timer{--h:min(11vh,24vw);--w:calc(var(--h)*1.145)}
+}
+.player{display:flex;align-items:center;gap:12px;width:min(92vw,400px);padding:8px 10px;background:var(--card);border-radius:14px;color:#fff;cursor:pointer}
+.player[hidden]{display:none}
+#cover{width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none}
+.meta{flex:1;min-width:0}
+.ttl{font-size:14px;font-weight:600;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.art{font-size:12px;color:#8a8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl{display:flex;gap:2px;flex:none}
+button.ic{width:38px;height:38px;padding:0;border:0;background:transparent;border-radius:10px;display:grid;place-items:center;color:#fff}
+button.ic:hover{background:#242424}
+button.ic svg{width:20px;height:20px;fill:currentColor}
+.np{max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  font-size:max(12px,calc(var(--h)*.055));color:#777;min-height:1.3em}
+.b2{bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
+@media (max-width:700px){.b2{bottom:calc(env(safe-area-inset-bottom,0px) + 120px)}}
+button[hidden]{display:none}
+
+dialog{cursor:default;background:#141414;color:#ddd;border:1px solid #2a2a2a;border-radius:14px;padding:22px;
+  width:min(92vw,420px);margin:auto;font-size:14px;line-height:1.5}
+dialog::backdrop{background:rgba(0,0,0,.85)}
+dialog h2{font-size:18px;margin-bottom:8px;color:#fff}
+dialog p{color:#999;margin-bottom:12px;font-size:13px}
+.quote-box{-webkit-user-select:none;user-select:none;cursor:default;background:#0a0a0a;border-left:3px solid #fff;padding:10px 12px;margin-bottom:14px;font-style:italic;color:#fff;border-radius:0 8px 8px 0}
+dialog input{width:100%;padding:10px;margin-bottom:14px;border-radius:8px;border:1px solid #2a2a2a;background:#0a0a0a;color:#fff;font:inherit}
+dialog .row{display:flex;gap:10px;justify-content:flex-end}
+/* --- Look flip clock analogico --- */
+.clock,.timer{padding:calc(var(--h)*.035);gap:calc(var(--h)*.03);border-radius:calc(var(--h)*.075);
+  background:linear-gradient(180deg,#1c1c1c,#0b0b0b);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+.card{background:#000;border-radius:calc(var(--h)*.05);box-shadow:0 0 0 1px #050505,0 2px 3px rgba(0,0,0,.7)}
+.half span{font-weight:700;letter-spacing:-.03em;text-shadow:0 1px 1px rgba(0,0,0,.6);z-index:1}
+.t{background:linear-gradient(180deg,#262626,#151515);border-radius:calc(var(--h)*.05) calc(var(--h)*.05) 0 0}
+.b{background:linear-gradient(180deg,#101010,#1c1c1c);border-radius:0 0 calc(var(--h)*.05) calc(var(--h)*.05)}
+.t::after,.b::after{content:"";position:absolute;inset:0;pointer-events:none}
+.t::after{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.45))}
+.b::after{background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(255,255,255,.03))}
+.flap-t::before,.flap-b::before{content:"";position:absolute;inset:0;background:#000;opacity:0;z-index:4;pointer-events:none}
+.flap-b::before{opacity:.75}
+.go .flap-t::before{animation:shadeIn .3s ease-in forwards}
+.go .flap-b::before{animation:shadeOut .3s .3s ease-out forwards}
+@keyframes shadeIn{to{opacity:.75}}
+@keyframes shadeOut{to{opacity:0}}
+.card::after{height:max(2px,calc(var(--h)*.012));margin-top:calc(max(2px,var(--h)*.012)/-2);background:#000;box-shadow:0 1px 0 rgba(255,255,255,.06)}
+.card::before{content:"";position:absolute;top:50%;left:calc(var(--h)*-.012);right:calc(var(--h)*-.012);height:calc(var(--h)*.07);
+  margin-top:calc(var(--h)*-.035);z-index:6;pointer-events:none;border-radius:2px;
+  background:linear-gradient(180deg,#444,#161616) left center/calc(var(--h)*.03) 100% no-repeat,
+             linear-gradient(180deg,#444,#161616) right center/calc(var(--h)*.03) 100% no-repeat}
+.ampm{color:#9a968c}
+.ampm span{display:inline-block;margin-right:.6em;letter-spacing:.1em;opacity:.3}
+.ampm span.on{opacity:1;color:#ece8dd}
+/* --- Controlli timer compatti --- */
+.tctl{display:flex;align-items:center;gap:6px;padding:5px;margin-top:calc(var(--h)*-.03);background:var(--card);
+  border:1px solid #232323;border-radius:999px;opacity:0;transition:opacity .3s;pointer-events:none}
+body.ui .tctl,.tctl.show{opacity:1;pointer-events:auto}
+.tctl button{border:0;background:transparent;color:#8a8a8a;padding:0;display:grid;place-items:center}
+.tctl button:hover{background:#242424;color:#fff}
+.tctl svg{width:18px;height:18px;fill:currentColor}
+.tctl .tgo{width:38px;height:38px;border-radius:50%;background:#ece8dd;color:#111}
+.tctl .tgo:hover{background:#fff;color:#000}
+.tctl .tre{width:34px;height:34px;border-radius:50%}
+.seg{display:flex;gap:2px;margin-left:2px;padding-left:8px;border-left:1px solid #2a2a2a}
+.tctl .seg button{padding:7px 11px;border-radius:999px;font-size:12px}
+.tctl .seg button[aria-pressed="true"]{background:#2a2a2a;color:#fff}
+.timer.ring{animation:blink 1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+/* Barra comandi su una sola riga: scheda a sinistra, collegamenti a destra */
+.bar{justify-content:flex-start}
+.b2{justify-content:flex-end;bottom:calc(env(safe-area-inset-bottom,0px) + 18px)}
+body.ui .bar{pointer-events:none}
+body.ui .bar button{pointer-events:auto}
+@media (max-width:700px){.bar{justify-content:center}.b2{justify-content:center;bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}}
+/* Layout: orologio grande; il timer compare solo quando viene attivato */
+#wrapper{--h:min(52vh,36vw);--w:calc(var(--h)*1.145)}
+#wrapper.pomo{--h:min(40vh,31vw);--w:calc(var(--h)*1.145)}
+#wrapper:not(.pomo) .timer,#wrapper:not(.pomo) .tctl{display:none}
+.tctl .tx{width:30px;height:30px;border-radius:50%}
+@media (max-width:700px) and (orientation:portrait){
+  #wrapper{--h:min(30vh,58vw);--w:calc(var(--h)*1.145)}
+  #wrapper.pomo{--h:min(20vh,46vw);--w:calc(var(--h)*1.145)}
+}
+#blackout{position:fixed;inset:0;background:#000;z-index:9999;display:none;cursor:none}
+#blackout.show{display:block}
+@media (prefers-reduced-motion:reduce){
+  .go .flap-t,.go .flap-b{animation-duration:.01s;animation-delay:0s}
+}
+
+/* --- Mini orologio --- */
+:root{--h:min(74vh,36vw);--w:calc(var(--h)*1.145)}
+html,body{background:transparent !important;overflow:hidden;-webkit-app-region:drag;cursor:default;user-select:none}
+body{display:flex;align-items:center;justify-content:center}
+#back{-webkit-app-region:no-drag;position:fixed;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:0;
+  background:rgba(0,0,0,.75);color:#bbb;display:grid;place-items:center;padding:0;opacity:0;transition:opacity .2s;z-index:20}
+body:hover #back{opacity:1}
+#back:hover{background:#2a2a2a;color:#fff}
+#back svg{width:12px;height:12px;fill:currentColor}
+</style>
+</head>
+<body>
+<main class="clock"><div class="card" id="h"><div class="ampm" id="ampm"></div></div><div class="card" id="m"></div></main>
+<button id="back" title="Torna all'orologio" aria-label="Torna all'orologio"><svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-6.3 6.3-1.4-1.4L17.6 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg></button>
+<script>
+const { ipcRenderer } = require('electron');
+(function(){
+  function Card(el){
+    this.el = el; this.val = null;
+    el.insertAdjacentHTML('beforeend',
+      '<div class="half t"><span></span></div><div class="half b"><span></span></div>' +
+      '<div class="half t flap-t"><span></span></div><div class="half b flap-b"><span></span></div>');
+    var s = el.querySelectorAll('.half span');
+    this.st = s[0]; this.sb = s[1]; this.ft = s[2]; this.fb = s[3];
+  }
+  Card.prototype.set = function(v){
+    var self = this;
+    if (this.val === null){ this.st.textContent = this.sb.textContent = this.ft.textContent = this.fb.textContent = v; this.val = v; return; }
+    if (v === this.val) return;
+    var old = this.val; this.val = v;
+    this.st.textContent = v; this.sb.textContent = old; this.ft.textContent = old; this.fb.textContent = v;
+    this.el.classList.remove('go'); void this.el.offsetWidth; this.el.classList.add('go');
+    clearTimeout(this.t);
+    this.t = setTimeout(function(){ self.sb.textContent = v; self.ft.textContent = v; self.el.classList.remove('go'); }, 620);
+  };
+  var hc = new Card(document.getElementById('h')), mc = new Card(document.getElementById('m'));
+  var ampm = document.getElementById('ampm');
+  var pad = function(n){ return (n < 10 ? '0' : '') + n; };
+  var tz = 'Europe/Rome';
+  function parts(){
+    var d = new Date(), r = {h: d.getHours(), m: d.getMinutes()};
+    try {
+      new Intl.DateTimeFormat('en-GB', {hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: tz})
+        .formatToParts(d).forEach(function(x){
+          if (x.type === 'hour') r.h = (+x.value) % 24;
+          if (x.type === 'minute') r.m = +x.value;
+        });
+    } catch(e){}
+    return r;
+  }
+  function tick(){
+    var h24 = true;
+    try { h24 = localStorage.getItem('flip24') !== '0'; } catch(e){}
+    var t = parts(), hr = t.h;
+    if (h24) ampm.innerHTML = '';
+    else {
+      ampm.innerHTML = '<span' + (hr < 12 ? ' class="on"' : '') + '>AM</span><span' + (hr >= 12 ? ' class="on"' : '') + '>PM</span>';
+      hr = hr % 12 || 12;
+    }
+    hc.set(h24 ? pad(hr) : String(hr)); mc.set(pad(t.m));
+  }
+  tick(); setInterval(tick, 1000);
+  /* Spostamento impercettibile (passi da 1 px ogni ~30 s) per proteggere gli schermi OLED */
+  var SHIFT_X = 4, SHIFT_Y = 3, shiftEl = document.querySelector('.clock'), lastShift = '';
+  function pixelShift(){
+    var t = Date.now() / 1000;
+    var x = Math.round(SHIFT_X * Math.sin(2 * Math.PI * t / 1380));
+    var y = Math.round(SHIFT_Y * Math.sin(2 * Math.PI * t / 1860));
+    var v = 'translate(' + x + 'px,' + y + 'px)';
+    if (v !== lastShift){ lastShift = v; shiftEl.style.transform = v; }
+  }
+  pixelShift(); setInterval(pixelShift, 5000);
+  document.getElementById('back').onclick = function(){ ipcRenderer.send('mini-close'); };
+})();
+</script>
+</body>
+</html>
