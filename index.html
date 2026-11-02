@@ -153,6 +153,13 @@ body.ui .bar button{pointer-events:auto}
 #wrapper:not(.pomo) .timer:not(.ctimer),#wrapper:not(.pomo) .tctl:not(.ctctl){display:none}
 .ctimer[hidden],.ctctl[hidden]{display:none}
 .css-fullscreen .minibtn{display:none}
+/* --- Icona mini nell'angolo di orologio e timer: compare solo passando il mouse --- */
+.clock,.timer{position:relative}
+.cornermini{position:absolute;top:calc(var(--h)*.08);right:calc(var(--h)*.08);z-index:10;width:max(28px,calc(var(--h)*.11));height:max(28px,calc(var(--h)*.11));
+  padding:0;border:0;border-radius:50%;background:rgba(0,0,0,.65);color:#bdb9ae;display:grid;place-items:center;opacity:0;transition:opacity .2s}
+.cornermini svg{width:55%;height:55%;fill:currentColor}
+.clock:hover .cornermini,.timer:hover .cornermini,.cornermini:focus-visible{opacity:1}
+.cornermini:hover{background:#2a2a2a;color:#fff}
 .tctl .tx{width:30px;height:30px;border-radius:50%}
 @media (max-width:700px) and (orientation:portrait){
   #wrapper{--h:min(30vh,58vw);--w:calc(var(--h)*1.145)}
@@ -260,26 +267,27 @@ body.ui .rail .rb{pointer-events:auto}
   <main class="clock" aria-label="Orologio">
     <div class="card" id="h"><div class="ampm" id="ampm"></div></div>
     <div class="card" id="m"></div>
+    <button class="cornermini minibtn" id="cclock" title="Mostra come mini orologio" aria-label="Mostra come mini orologio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
   </main>
   <section class="timer" id="timer" aria-label="Timer pomodoro">
     <div class="card" id="pm"><div class="ampm" id="plabel"></div></div>
     <div class="card" id="ps"></div>
+    <button class="cornermini minibtn" id="pmini" title="Mostra come mini timer" aria-label="Mostra come mini timer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
   </section>
   <div class="tctl" id="tctl" role="group" aria-label="Controlli timer">
     <button class="tgo" id="pstart" aria-label="Avvia timer"><svg viewBox="0 0 24 24"><path id="pgo" d="M8 5v14l11-7z"/></svg></button>
     <button class="tre" id="preset" aria-label="Azzera timer" title="Azzera"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
     <div class="seg" id="pseg"></div>
-    <button class="tx minibtn" id="pmini" aria-label="Mostra come mini timer" title="Mostra come mini timer"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
     <button class="tx" id="pclose" aria-label="Chiudi timer" title="Chiudi timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
   </div>
   <section class="timer ctimer" id="ctimer" aria-label="Timer" hidden>
     <div class="card" id="cm"><div class="ampm" id="clabel"></div></div>
     <div class="card" id="cs"></div>
+    <button class="cornermini minibtn" id="cmini" title="Mostra come mini timer" aria-label="Mostra come mini timer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
   </section>
   <div class="tctl ctctl" id="ctctl" role="group" aria-label="Controlli timer" hidden>
     <button class="tgo" id="cgo" aria-label="Avvia o ferma"><svg viewBox="0 0 24 24"><path id="cgop" d="M8 5v14l11-7z"/></svg></button>
     <button class="tre" id="cre" aria-label="Riparti da capo" title="Riparti da capo"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
-    <button class="tx minibtn" id="cmini" aria-label="Mostra come mini timer" title="Mostra come mini timer"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
     <button class="tx" id="cx" aria-label="Elimina timer" title="Elimina timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
   </div>
   <div class="chips" id="chips" hidden></div>
@@ -1077,6 +1085,7 @@ body.ui .rail .rb{pointer-events:auto}
   }
   byId('cgo').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) toggleT(t); };
   byId('cre').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) resetT(t); };
+  byId('cclock').onclick = function(e){ e.stopPropagation(); try { ipcRenderer.send('open-mini', {mode: 'clock'}); } catch(x){} };
   byId('cmini').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) openMiniTimer(t.id); };
   byId('pmini').onclick = function(e){ e.stopPropagation(); openMiniTimer('pomo'); };
   byId('cx').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) delT(t); };
