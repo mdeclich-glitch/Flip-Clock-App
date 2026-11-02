@@ -9,7 +9,7 @@
     "dist": "electron-builder"
   },
   "liveUpdate": {
-    "baseUrl": "https://raw.githubusercontent.com/TUO_UTENTE/flip-clock/main/"
+    "baseUrl": "https://raw.githubusercontent.com/mdeclich-glitch/Flip-Clock-App/main/"
   },
   "build": {
     "appId": "com.flipclock.app",
