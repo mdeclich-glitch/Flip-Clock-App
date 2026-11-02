@@ -152,6 +152,7 @@ body.ui .bar button{pointer-events:auto}
 #wrapper.pomo,#wrapper.ctm{--h:min(40vh,31vw);--w:calc(var(--h)*1.145)}
 #wrapper:not(.pomo) .timer:not(.ctimer),#wrapper:not(.pomo) .tctl:not(.ctctl){display:none}
 .ctimer[hidden],.ctctl[hidden]{display:none}
+.css-fullscreen .minibtn{display:none}
 .tctl .tx{width:30px;height:30px;border-radius:50%}
 @media (max-width:700px) and (orientation:portrait){
   #wrapper{--h:min(30vh,58vw);--w:calc(var(--h)*1.145)}
@@ -268,6 +269,7 @@ body.ui .rail .rb{pointer-events:auto}
     <button class="tgo" id="pstart" aria-label="Avvia timer"><svg viewBox="0 0 24 24"><path id="pgo" d="M8 5v14l11-7z"/></svg></button>
     <button class="tre" id="preset" aria-label="Azzera timer" title="Azzera"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
     <div class="seg" id="pseg"></div>
+    <button class="tx minibtn" id="pmini" aria-label="Mostra come mini timer" title="Mostra come mini timer"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
     <button class="tx" id="pclose" aria-label="Chiudi timer" title="Chiudi timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
   </div>
   <section class="timer ctimer" id="ctimer" aria-label="Timer" hidden>
@@ -277,6 +279,7 @@ body.ui .rail .rb{pointer-events:auto}
   <div class="tctl ctctl" id="ctctl" role="group" aria-label="Controlli timer" hidden>
     <button class="tgo" id="cgo" aria-label="Avvia o ferma"><svg viewBox="0 0 24 24"><path id="cgop" d="M8 5v14l11-7z"/></svg></button>
     <button class="tre" id="cre" aria-label="Riparti da capo" title="Riparti da capo"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+    <button class="tx minibtn" id="cmini" aria-label="Mostra come mini timer" title="Mostra come mini timer"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
     <button class="tx" id="cx" aria-label="Elimina timer" title="Elimina timer"><svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
   </div>
   <div class="chips" id="chips" hidden></div>
@@ -625,7 +628,7 @@ body.ui .rail .rb{pointer-events:auto}
   fsBtn.onclick = function(e){ e.stopPropagation(); toggleFs(); };
   document.getElementById('mini').onclick = function(e){
     e.stopPropagation();
-    try { ipcRenderer.send('open-mini'); } catch(x){}
+    try { ipcRenderer.send('open-mini', {mode: 'clock'}); } catch(x){}
   };
 
   var hideT;
@@ -991,7 +994,8 @@ body.ui .rail .rb{pointer-events:auto}
   var IC = {
     play: 'M8 5v14l11-7z', pause: 'M6 5h4v14H6zM14 5h4v14h-4z',
     reset: 'M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
-    del: 'M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'
+    del: 'M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+    mini: 'M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z'
   };
   function byId(id){ return document.getElementById(id); }
   function loadJ(k){ try { var v = JSON.parse(LS.get(k)); return Array.isArray(v) ? v : []; } catch(e){ return []; } }
@@ -1073,6 +1077,8 @@ body.ui .rail .rb{pointer-events:auto}
   }
   byId('cgo').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) toggleT(t); };
   byId('cre').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) resetT(t); };
+  byId('cmini').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) openMiniTimer(t.id); };
+  byId('pmini').onclick = function(e){ e.stopPropagation(); openMiniTimer('pomo'); };
   byId('cx').onclick = function(e){ e.stopPropagation(); var t = primaryTimer(); if (t) delT(t); };
   var tList = byId('tList');
   function emptyLi(text){ var e = document.createElement('li'); e.className = 'empty'; e.textContent = text; return e; }
@@ -1087,6 +1093,7 @@ body.ui .rail .rb{pointer-events:auto}
       sb.textContent = (t.label ? t.label + ' \u00b7 ' : '') + 'da ' + fmtHMS(t.total) + (t.run ? '' : ' \u00b7 in pausa');
       info.appendChild(tm); info.appendChild(sb); li.appendChild(info);
       li.appendChild(ib(t.run ? IC.pause : IC.play, t.run ? 'Metti in pausa' : 'Riprendi', function(){ toggleT(t); }));
+      if (!isCssFs) li.appendChild(ib(IC.mini, 'Mostra come mini timer', function(){ panel.close(); openMiniTimer(t.id); }));
       li.appendChild(ib(IC.reset, 'Riparti da capo', function(){ resetT(t); }));
       li.appendChild(ib(IC.del, 'Elimina', function(){ delT(t); }));
       tList.appendChild(li);
@@ -1270,6 +1277,33 @@ body.ui .rail .rb{pointer-events:auto}
     });
     chipsEl.hidden = !items.length;
   }
+  /* --- Mini orologio: pubblica pomodoro e timer, il mini ne mostra uno solo (quello scelto) --- */
+  function miniItems(){
+    var arr = [];
+    if (wrapper.classList.contains('pomo'))
+      arr.push({src: 'pomo', id: 'pomo', label: modes[mi].k, run: running, left: running ? 0 : left, endAt: running ? endAt : 0});
+    timers.forEach(function(t){
+      arr.push({src: 'timer', id: t.id, label: t.label || 'Timer', run: t.run, left: t.left, endAt: t.endAt});
+    });
+    return arr;
+  }
+  var lastMiniSig = null;
+  function publishMini(){
+    var arr = miniItems(), sig = JSON.stringify(arr);
+    if (sig === lastMiniSig) return;
+    lastMiniSig = sig;
+    try { ipcRenderer.send('mini-state', arr); } catch(e){}
+  }
+  function openMiniTimer(id){ try { ipcRenderer.send('open-mini', {mode: 'timer', id: id}); } catch(e){} }
+  /* Comandi arrivati dal mini (pausa/riavvio) */
+  ipcRenderer.on('timer-cmd', function(e, c){
+    if (!c) return;
+    var fake = {stopPropagation: function(){}};
+    if (c.src === 'pomo'){ (c.cmd === 'toggle' ? pstart : document.getElementById('preset')).onclick(fake); return; }
+    var t = timers.filter(function(x){ return x.id === c.id; })[0];
+    if (!t) return;
+    if (c.cmd === 'toggle') toggleT(t); else resetT(t);
+  });
   function tickTA(){
     var now = Date.now(), ch = false;
     timers.slice().forEach(function(t){
@@ -1281,7 +1315,7 @@ body.ui .rail .rb{pointer-events:auto}
     if (ch){ saveT(); renderT(); }
     checkAlarms(now);
     if (panel.open) updT();
-    drawCT(); renderChips();
+    drawCT(); renderChips(); publishMini();
   }
   setInterval(tickTA, 500);
   renderT(); renderA();

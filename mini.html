@@ -167,10 +167,29 @@ body{display:flex;align-items:center;justify-content:center}
 body:hover #back{opacity:1}
 #back:hover{background:#2a2a2a;color:#fff}
 #back svg{width:12px;height:12px;fill:currentColor}
+/* --- Mini timer: stessa finestra, stesso aspetto dell'orologio --- */
+#mstage{display:flex}
+.clock[hidden]{display:none}
+#mtimer{opacity:.5}
+#mtimer.on{opacity:1}
+#mtimer .ampm{font-size:max(9px,calc(var(--h)*.085))}
+.mctl{-webkit-app-region:no-drag;position:fixed;top:3px;left:3px;display:flex;gap:4px;z-index:20;opacity:0;transition:opacity .2s}
+.mctl[hidden]{display:none}
+body:hover .mctl{opacity:1}
+.mctl button{width:22px;height:22px;padding:0;border:0;border-radius:50%;background:rgba(0,0,0,.75);color:#bbb;display:grid;place-items:center}
+.mctl button:hover{background:#2a2a2a;color:#fff}
+.mctl svg{width:12px;height:12px;fill:currentColor}
 </style>
 </head>
 <body>
-<main class="clock"><div class="card" id="h"><div class="ampm" id="ampm"></div></div><div class="card" id="m"></div></main>
+<div id="mstage">
+<main class="clock" id="mclock"><div class="card" id="h"><div class="ampm" id="ampm"></div></div><div class="card" id="m"></div></main>
+<main class="clock" id="mtimer" hidden><div class="card" id="mm"><div class="ampm" id="mlabel"></div></div><div class="card" id="ms"></div></main>
+</div>
+<div class="mctl" id="mctl" hidden>
+  <button id="mgo" title="Avvia o ferma" aria-label="Avvia o ferma"><svg viewBox="0 0 24 24"><path id="mgop" d="M8 5v14l11-7z"/></svg></button>
+  <button id="mre" title="Riparti da capo" aria-label="Riparti da capo"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+</div>
 <button id="back" title="Torna all'orologio" aria-label="Torna all'orologio"><svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-6.3 6.3-1.4-1.4L17.6 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg></button>
 <script>
 const { ipcRenderer } = require('electron');
@@ -221,7 +240,7 @@ const { ipcRenderer } = require('electron');
   }
   tick(); setInterval(tick, 1000);
   /* Spostamento impercettibile (passi da 1 px ogni ~30 s) per proteggere gli schermi OLED */
-  var SHIFT_X = 4, SHIFT_Y = 3, shiftEl = document.querySelector('.clock'), lastShift = '';
+  var SHIFT_X = 4, SHIFT_Y = 3, shiftEl = document.getElementById('mstage'), lastShift = '';
   function pixelShift(){
     var t = Date.now() / 1000;
     var x = Math.round(SHIFT_X * Math.sin(2 * Math.PI * t / 1380));
@@ -230,6 +249,35 @@ const { ipcRenderer } = require('electron');
     if (v !== lastShift){ lastShift = v; shiftEl.style.transform = v; }
   }
   pixelShift(); setInterval(pixelShift, 5000);
+
+  /* Il mini mostra UNA cosa sola: l'orologio oppure il timer/pomodoro scelto nella finestra principale */
+  var mclock = document.getElementById('mclock'), mtimer = document.getElementById('mtimer'), mctl = document.getElementById('mctl');
+  var mlabel = document.getElementById('mlabel'), mgop = document.getElementById('mgop');
+  var tm = new Card(document.getElementById('mm')), ts = new Card(document.getElementById('ms'));
+  var target = {mode: 'clock'}, items = [], cur = null;
+  function remaining(){ return cur.run ? Math.max(0, (cur.endAt - Date.now()) / 1000) : cur.left; }
+  function drawT(){
+    if (!cur) return;
+    var sec = Math.ceil(remaining()), big = sec >= 3600; /* da un'ora in su: ore e minuti */
+    tm.set(pad(big ? Math.floor(sec / 3600) : Math.floor(sec / 60)));
+    ts.set(pad(big ? Math.floor(sec % 3600 / 60) : sec % 60));
+    mlabel.textContent = String(cur.label || 'Timer').slice(0, 12).toUpperCase() + (big ? ' \u00b7 ORE' : '');
+    mtimer.classList.toggle('on', !!cur.run);
+    mgop.setAttribute('d', cur.run ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M8 5v14l11-7z');
+  }
+  function show(){
+    cur = target.mode === 'timer' ? (items.filter(function(x){ return x.id === target.id; })[0] || null) : null;
+    /* se il timer scelto non esiste più, torna all'orologio */
+    mclock.hidden = !!cur; mtimer.hidden = !cur; mctl.hidden = !cur;
+    drawT();
+  }
+  ipcRenderer.on('mini-target', function(e, t){ target = t || {mode: 'clock'}; show(); });
+  ipcRenderer.on('mini-state', function(e, s){ items = s || []; show(); });
+  ipcRenderer.invoke('mini-get-target').then(function(t){ target = t || target; return ipcRenderer.invoke('mini-get-state'); })
+    .then(function(s){ items = s || []; show(); }).catch(function(){});
+  setInterval(drawT, 250);
+  document.getElementById('mgo').onclick = function(){ if (cur) ipcRenderer.send('mini-cmd', {src: cur.src, id: cur.id, cmd: 'toggle'}); };
+  document.getElementById('mre').onclick = function(){ if (cur) ipcRenderer.send('mini-cmd', {src: cur.src, id: cur.id, cmd: 'reset'}); };
   document.getElementById('back').onclick = function(){ ipcRenderer.send('mini-close'); };
 })();
 </script>

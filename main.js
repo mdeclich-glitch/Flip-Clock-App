@@ -6,7 +6,7 @@ const pkg = require('./package.json');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html non funzionino più: in quel caso serve rifare npm run dist. */
-const SHELL_API = 2;
+const SHELL_API = 4;
 
 /* Eseguibile di Pear Desktop (YouTube Music) */
 const PEAR_EXE = 'C:\\Users\\matte\\AppData\\Local\\Programs\\youtube-music\\YouTube Music.exe';
@@ -14,6 +14,8 @@ const PEAR_EXE = 'C:\\Users\\matte\\AppData\\Local\\Programs\\youtube-music\\You
 let mainWindow;
 let miniWindow = null; // mini orologio sempre in primo piano
 let locked = false; // vero quando lo schermo intero protetto è attivo
+let lastMiniState = []; // timer e pomodoro correnti, pubblicati dalla finestra principale
+let miniTarget = { mode: 'clock' }; // cosa mostra il mini: { mode: 'clock' } oppure { mode: 'timer', id }
 let updateReady = null; // { version, needsInstall } quando c'è un aggiornamento pronto
 
 /* ---------- Aggiornamento automatico dei file dell'interfaccia ----------
@@ -159,8 +161,14 @@ function createWindow() {
   });
 }
 
-function openMini() {
-  if (miniWindow && !miniWindow.isDestroyed()) { miniWindow.show(); return; }
+function openMini(target) {
+  miniTarget = target && target.mode === 'timer' && target.id ? { mode: 'timer', id: String(target.id) } : { mode: 'clock' };
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.webContents.send('mini-target', miniTarget); // c'è già un mini: cambia solo ciò che mostra
+    miniWindow.show();
+    if (mainWindow && !mainWindow.isMinimized()) mainWindow.minimize();
+    return;
+  }
   // il blocco dello schermo intero non vale in modalità mini
   locked = false;
   mainWindow.setKiosk(false);
@@ -191,13 +199,25 @@ function closeMini() {
   }
 }
 
-ipcMain.on('open-mini', openMini);
+ipcMain.on('open-mini', (e, t) => openMini(t));
 ipcMain.on('mini-close', closeMini);
 
 ipcMain.on('set-fullscreen', (event, makeFullscreen) => {
   locked = !!makeFullscreen;
   mainWindow.setKiosk(locked);
   mainWindow.setAlwaysOnTop(locked, 'screen-saver');
+});
+
+/* Mini orologio: UNA sola finestra mini, che mostra l'orologio oppure un timer/pomodoro a scelta.
+   La finestra principale pubblica lo stato dei timer, il mini disegna quello scelto e rimanda i comandi. */
+ipcMain.on('mini-state', (e, st) => {
+  lastMiniState = Array.isArray(st) ? st : [];
+  if (miniWindow && !miniWindow.isDestroyed()) miniWindow.webContents.send('mini-state', lastMiniState);
+});
+ipcMain.handle('mini-get-state', () => lastMiniState);
+ipcMain.handle('mini-get-target', () => miniTarget);
+ipcMain.on('mini-cmd', (e, c) => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('timer-cmd', c);
 });
 
 /* Timer o sveglia in corso: porta l'orologio davanti (chiudendo il mini, se aperto) */
