@@ -310,7 +310,6 @@ body.ui .rail .rb{pointer-events:auto}
   <nav class="rail" id="rail" aria-label="Comandi">
     <button class="rb" id="fs" data-tip="Schermo intero" aria-label="Schermo intero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v-2a2 2 0 0 1 2 -2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2 -2v-2"/></svg></button>
     <button class="rb" id="pomo" data-tip="Pomodoro" aria-label="Pomodoro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7h11"/><path d="M6.5 17h11"/><path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z"/><path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z"/></svg></button>
-    <button class="rb" id="mini" data-tip="Mini orologio" aria-label="Mini orologio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4"/><path d="M14 14m0 1a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1z"/></svg></button>
     <button class="rb" id="fmt"></button>
     <button class="rb" id="clk" data-tip="Timer e sveglie" aria-label="Timer e sveglie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M12 10v3l2 2"/><path d="M7 4l-2.75 2"/><path d="M17 4l2.75 2"/></svg></button>
     <span class="rsep" id="rsep"></span>
@@ -580,7 +579,6 @@ body.ui .rail .rb{pointer-events:auto}
       document.getElementById('wrapper').classList.add('css-fullscreen');
       isCssFs = true;
       setFsUi(true);
-      document.getElementById('mini').hidden = true;
       try { ipcRenderer.send('set-fullscreen', true); } catch(e){}
     } else {
       currentQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
@@ -622,7 +620,6 @@ body.ui .rail .rb{pointer-events:auto}
       document.getElementById('wrapper').classList.remove('css-fullscreen');
       isCssFs = false;
       setFsUi(false);
-      document.getElementById('mini').hidden = false;
       lockDlg.close();
       try { ipcRenderer.send('set-fullscreen', false); } catch(e){}
     } else {
@@ -634,10 +631,6 @@ body.ui .rail .rb{pointer-events:auto}
   };
 
   fsBtn.onclick = function(e){ e.stopPropagation(); toggleFs(); };
-  document.getElementById('mini').onclick = function(e){
-    e.stopPropagation();
-    try { ipcRenderer.send('open-mini', {mode: 'clock'}); } catch(x){}
-  };
 
   var hideT;
   function showUi(){
