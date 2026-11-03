@@ -248,6 +248,10 @@ body.ui .rail .rb{pointer-events:auto}
 .plist .sw[aria-checked="true"]{background:#ece8dd}
 .plist .sw[aria-checked="true"]::after{transform:translateX(18px);background:#111}
 .plist .sw[aria-checked="true"]:hover{background:#fff}
+/* --- Data (senza anno), con gli stessi cartellini dell'orologio --- */
+#dateclock{--h:min(10vh,8vw);--w:calc(var(--h)*1.145);flex-direction:row}
+#dateclock .dtext{--w:calc(var(--h)*1.55)}
+#dateclock .dtext .half span{font-size:calc(var(--h)*.4);letter-spacing:.02em}
 /* --- Finestra di sveglia / timer scaduto --- */
 #ringDlg{text-align:center;width:min(92vw,360px)}
 #ringClock{--h:88px;--w:calc(var(--h)*1.145);display:inline-flex;flex-direction:row;margin:4px 0 16px}
@@ -269,6 +273,11 @@ body.ui .rail .rb{pointer-events:auto}
     <div class="card" id="m"></div>
     <button class="cornermini minibtn" id="cclock" title="Mostra come mini orologio" aria-label="Mostra come mini orologio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
   </main>
+  <section class="clock" id="dateclock" aria-label="Data">
+    <div class="card dtext" id="dw"></div>
+    <div class="card" id="dd"></div>
+    <div class="card dtext" id="dm"></div>
+  </section>
   <section class="timer" id="timer" aria-label="Timer pomodoro">
     <div class="card" id="pm"><div class="ampm" id="plabel"></div></div>
     <div class="card" id="ps"></div>
@@ -419,6 +428,18 @@ body.ui .rail .rb{pointer-events:auto}
   var ampm = document.getElementById('ampm');
   var pad = function(n){ return (n < 10 ? '0' : '') + n; };
 
+  /* Data (senza anno) nel fuso dell'orologio: giorno della settimana, giorno, mese */
+  var dw = new Card(document.getElementById('dw')), dd = new Card(document.getElementById('dd')), dm = new Card(document.getElementById('dm'));
+  var dfmt = null;
+  try { dfmt = new Intl.DateTimeFormat('it-IT', {timeZone: tz || undefined, weekday: 'short', day: '2-digit', month: 'short'}); } catch(e){}
+  function abbr(x){ return String(x || '').replace('.', '').toUpperCase().slice(0, 3); }
+  function drawDate(){
+    var o = {};
+    try { (dfmt || new Intl.DateTimeFormat('it-IT', {weekday: 'short', day: '2-digit', month: 'short'})).formatToParts(new Date()).forEach(function(x){ o[x.type] = x.value; }); } catch(e){ return; }
+    dw.set(abbr(o.weekday)); dd.set(o.day); dm.set(abbr(o.month));
+  }
+  drawDate(); setInterval(drawDate, 1000);
+
   function parts(){
     var d = new Date();
     if (!tz) return {h:d.getHours(), m:d.getMinutes()};
@@ -465,6 +486,7 @@ body.ui .rail .rb{pointer-events:auto}
     {k:'PAUSA LUNGA', s:15*60, n:'Pausa lunga 15 min', t:'Lunga 15'}
   ];
   var mi = 0, left = modes[0].s, running = false, endAt = 0, actx = null;
+  var done = 0, CYCLE = 4; /* sessioni di focus completate nel ciclo / sessioni per ciclo */
   var pm = new Card(document.getElementById('pm'));
   var ps = new Card(document.getElementById('ps'));
   var plabel = document.getElementById('plabel');
@@ -476,13 +498,32 @@ body.ui .rail .rb{pointer-events:auto}
   function draw(){
     var s = Math.max(0, Math.ceil(left));
     pm.set(pad(Math.floor(s / 60))); ps.set(pad(s % 60));
-    plabel.textContent = modes[mi].k;
+    plabel.textContent = pomoLabel();
     pgo.setAttribute('d', running ? G_PAUSE : G_PLAY);
     pstart.setAttribute('aria-label', running ? 'Ferma timer' : (left < modes[mi].s ? 'Riprendi timer' : 'Avvia timer'));
     for (var k = 0; k < pseg.children.length; k++) pseg.children[k].setAttribute('aria-pressed', String(k === mi));
     ptimer.classList.toggle('on', running);
   }
   function setMode(i){ mi = i; left = modes[i].s; running = false; draw(); }
+  function pomoLabel(){ return mi === 0 ? 'FOCUS ' + Math.min(done + 1, CYCLE) + '/' + CYCLE : modes[mi].k; }
+  /* Fine di una fase: carica la successiva (ferma) e suona. Invio = parte la fase successiva.
+     Ciclo: focus, pausa, focus, pausa, focus, pausa, focus, pausa lunga, fine. */
+  function pomoPhaseEnd(){
+    var ended = mi, next, title, btn;
+    if (ended === 0){
+      done++;
+      next = done >= CYCLE ? 2 : 1;
+      title = 'Focus completato ' + Math.min(done, CYCLE) + '/' + CYCLE;
+      btn = next === 2 ? 'Avvia pausa lunga' : 'Avvia pausa';
+    } else if (ended === 1){
+      next = 0; title = 'Pausa finita'; btn = 'Avvia focus';
+    } else {
+      done = 0; next = 0; title = 'Ciclo completato'; btn = 'Fine';
+    }
+    setMode(next);
+    ringStart({kind: 'pomo', title: title, label: ended === 2 ? 'Hai finito tutte le sessioni' : 'Prossima: ' + modes[next].n,
+               stopLabel: btn, onStop: ended === 2 ? null : startTimer});
+  }
   /* Allarme: si ripete finché non avvii (o azzeri) un timer */
   var alarmT = 0;
   function beepOnce(){
@@ -513,7 +554,7 @@ body.ui .rail .rb{pointer-events:auto}
   setInterval(function(){
     if (!running) return;
     left = (endAt - Date.now()) / 1000;
-    if (left <= 0){ setMode(mi === 0 ? 1 : 0); startAlarm(); showUi(); return; }
+    if (left <= 0){ pomoPhaseEnd(); showUi(); return; }
     draw();
   }, 250);
   modes.forEach(function(m, i){
@@ -542,10 +583,10 @@ body.ui .rail .rb{pointer-events:auto}
     e.stopPropagation();
     if (wrapper.classList.contains('pomo')){ document.getElementById('pclose').onclick(e); return; }
     wrapper.classList.add('pomo'); pomoBtn.classList.add('act');
-    setMode(0); startTimer();
+    done = 0; setMode(0); startTimer();
   };
   document.getElementById('pclose').onclick = function(e){
-    e.stopPropagation(); stopAlarm(); setMode(0);
+    e.stopPropagation(); stopAlarm(); done = 0; setMode(0);
     wrapper.classList.remove('pomo'); pomoBtn.classList.remove('act');
   };
   document.getElementById('preset').onclick = function(e){ e.stopPropagation(); stopAlarm(); setMode(mi); };
@@ -1191,22 +1232,42 @@ body.ui .rail .rb{pointer-events:auto}
   byId('pnlClose').onclick = function(){ panel.close(); };
   byId('clk').onclick = function(e){ e.stopPropagation(); renderT(); renderA(); panel.showModal(); };
 
-  /* --- Squillo (timer scaduto o sveglia): si ripete finché non premi Stop --- */
+  /* --- Musica: si ferma quando suona qualcosa e riparte quando il suono si interrompe --- */
+  var held = null;
+  function holdMusic(){
+    if (held) return;
+    var a = pick();
+    if (!a || !a.playing || (a !== sp && a !== pe)) return;
+    held = a; a.playing = false; render();
+    if (a === sp) spApi('/pause', 'PUT').catch(function(){});
+    else pFetch('/pause', 'POST').then(function(r){ if (r.status === 404) return pFetch('/toggle-play', 'POST'); }).catch(function(){});
+  }
+  function releaseMusic(){
+    var a = held; held = null;
+    if (!a) return;
+    if (a === sp) spApi('/play', 'PUT').then(function(){ setTimeout(pollSp, 600); }).catch(function(){});
+    else pFetch('/play', 'POST').then(function(r){ if (r.status === 404) return pFetch('/toggle-play', 'POST'); })
+      .then(function(){ setTimeout(pollPe, 600); }).catch(function(){});
+  }
+
+  /* --- Squillo (timer scaduto, sveglia, fine fase del pomodoro): si ripete finché non premi Stop --- */
   function ringRender(){
     var r = ringQ[0]; if (!r) return;
     var hm = r.kind === 'alarm' ? r.time.split(':') : ['00', '00'];
     [['rh', hm[0]], ['rm', hm[1]]].forEach(function(x){ var el = byId(x[0]); el.innerHTML = ''; new Card(el).set(x[1]); });
-    byId('ringTitle').textContent = r.kind === 'alarm' ? '' : 'Timer scaduto';
+    byId('ringTitle').textContent = r.title || (r.kind === 'alarm' ? '' : 'Timer scaduto');
     byId('ringSub').textContent = r.label || (r.kind === 'alarm' ? 'Sveglia' : 'Timer da ' + fmtHMS(r.total));
+    byId('ringStop').textContent = r.stopLabel || 'Stop';
     byId('ringMore').textContent = ringQ.length > 1 ? 'Altri ' + (ringQ.length - 1) + ' in attesa' : '';
     byId('ringSnooze').hidden = r.kind !== 'alarm';
   }
   function ringStart(r){
     ringQ.push(r); ringRender();
-    if (!ringT){ beepOnce(); ringT = setInterval(beepOnce, 1400); }
+    if (!ringT){ holdMusic(); beepOnce(); ringT = setInterval(beepOnce, 1400); }
     clearTimeout(ringAuto);
     ringAuto = setTimeout(function(){ ringQ.length = 0; ringEnd(); }, 10 * 60000); /* dopo 10 minuti smette da sola */
     if (!ringDlg.open) ringDlg.showModal();
+    byId('ringStop').focus(); /* Invio = Stop (o avvia la fase successiva del pomodoro) */
     try { ipcRenderer.send('ring-alert'); } catch(e){}
     wake(); showUi();
   }
@@ -1214,8 +1275,9 @@ body.ui .rail .rb{pointer-events:auto}
     if (ringQ.length){ ringRender(); return; }
     clearInterval(ringT); ringT = 0; clearTimeout(ringAuto);
     if (ringDlg.open) ringDlg.close();
+    releaseMusic(); /* il suono è finito: la musica riparte */
   }
-  byId('ringStop').onclick = function(){ ringQ.shift(); ringEnd(); };
+  byId('ringStop').onclick = function(){ var r = ringQ.shift(); ringEnd(); if (r && r.onStop) r.onStop(); };
   byId('ringSnooze').onclick = function(){
     var r = ringQ.shift(), a = r && alarms.filter(function(x){ return x.id === r.id; })[0];
     if (a){ a.snooze = Date.now() + 5 * 60000; saveA(); renderA(); }
@@ -1283,7 +1345,7 @@ body.ui .rail .rb{pointer-events:auto}
   function miniItems(){
     var arr = [];
     if (wrapper.classList.contains('pomo'))
-      arr.push({src: 'pomo', id: 'pomo', label: modes[mi].k, run: running, left: running ? 0 : left, endAt: running ? endAt : 0});
+      arr.push({src: 'pomo', id: 'pomo', label: pomoLabel(), run: running, left: running ? 0 : left, endAt: running ? endAt : 0});
     timers.forEach(function(t){
       arr.push({src: 'timer', id: t.id, label: t.label || 'Timer', run: t.run, left: t.left, endAt: t.endAt});
     });
