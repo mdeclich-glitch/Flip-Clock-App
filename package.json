@@ -1,13 +1,14 @@
 {
   "name": "flip-clock-app",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "manifest": "node tools/make-manifest.js",
     "release": "node tools/release.js",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "build:scr": "electron-builder --win portable"
   },
   "liveUpdate": {
     "baseUrl": "https://raw.githubusercontent.com/mdeclich-glitch/Flip-Clock-App/main/"
@@ -20,6 +21,9 @@
     },
     "win": {
       "target": "nsis"
+    },
+    "portable": {
+      "artifactName": "FlipClock-Screensaver.scr"
     }
   },
   "devDependencies": {
