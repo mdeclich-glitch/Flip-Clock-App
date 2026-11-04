@@ -4,7 +4,7 @@ echo.
 echo  Pubblica un aggiornamento di Flip Clock
 echo  ---------------------------------------
 set "MSG="
-set /p MSG=Descrizione (facoltativa, invio per saltare): 
+set /p MSG=Descrizione (facoltativa, premi Invio per saltare): 
 echo.
 if defined MSG (
   call npm run release -- patch "%MSG%"

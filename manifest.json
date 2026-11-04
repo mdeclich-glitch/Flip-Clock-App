@@ -1,8 +1,9 @@
 {
-  "version": "1.4.8",
-  "shellApi": 4,
+  "version": "1.0.1",
+  "shellApi": 1,
   "files": {
     "index.html": "e7d451ff199b573c48b2d26bb1259b820ca8a99e338a9526950008b3a4ba5157",
-    "mini.html": "1a4179219ccb596da97564bd4897a7f816c24721320ce5969e58d0b1a5d433f2"
+    "mini.html": "1a4179219ccb596da97564bd4897a7f816c24721320ce5969e58d0b1a5d433f2",
+    "screensaver.html": "a718d824278b9b941ba98e4f2e203062659375735cb8a14e48132b2b8db760b6"
   }
 }
