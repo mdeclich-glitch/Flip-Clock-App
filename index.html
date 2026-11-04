@@ -74,7 +74,7 @@ body.ui .hint{opacity:1}
 .timer .ampm{font-size:max(10px,calc(var(--h)*.1))}
 @media (max-width:700px) and (orientation:portrait){
   :root{--h:min(22vh,50vw)}
-  .clock{flex-direction:column}
+  .clock{flex-direction:column;margin-right:0!important}
   .timer{--h:min(11vh,24vw);--w:calc(var(--h)*1.145)}
 }
 .player{display:flex;align-items:center;gap:12px;width:min(92vw,400px);padding:8px 10px;background:var(--card);border-radius:14px;color:#fff;cursor:pointer}
@@ -105,6 +105,12 @@ dialog .row{display:flex;gap:10px;justify-content:flex-end}
 .clock,.timer{padding:calc(var(--h)*.035);gap:calc(var(--h)*.03);border-radius:calc(var(--h)*.075);
   background:linear-gradient(180deg,#1c1c1c,#0b0b0b);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+
+/* Centratura visiva sulle schede di Ore e Minuti */
+.clock {
+  margin-right: calc(var(--h) * -.40);
+}
+
 .card{background:#000;border-radius:calc(var(--h)*.05);box-shadow:0 0 0 1px #050505,0 2px 3px rgba(0,0,0,.7)}
 .half span{font-weight:700;letter-spacing:-.03em;text-shadow:0 1px 1px rgba(0,0,0,.6);z-index:1}
 .t{background:linear-gradient(180deg,#262626,#151515);border-radius:calc(var(--h)*.05) calc(var(--h)*.05) 0 0}
