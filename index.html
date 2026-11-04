@@ -148,8 +148,8 @@ body.ui .bar{pointer-events:none}
 body.ui .bar button{pointer-events:auto}
 @media (max-width:700px){.bar{justify-content:center}.b2{justify-content:center;bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}}
 /* Layout: orologio grande; il timer compare solo quando viene attivato */
-#wrapper{--h:min(52vh,34vw);--w:calc(var(--h)*1.145)}
-#wrapper.pomo,#wrapper.ctm{--h:min(40vh,31vw);--w:calc(var(--h)*1.145)}
+#wrapper{--h:min(52vh,30vw);--w:calc(var(--h)*1.145)}
+#wrapper.pomo,#wrapper.ctm{--h:min(40vh,28vw);--w:calc(var(--h)*1.145)}
 #wrapper:not(.pomo) .timer:not(.ctimer),#wrapper:not(.pomo) .tctl:not(.ctctl){display:none}
 .ctimer[hidden],.ctctl[hidden]{display:none}
 .css-fullscreen .minibtn{display:none}
@@ -160,6 +160,7 @@ body.ui .bar button{pointer-events:auto}
 .cornermini svg{width:55%;height:55%;fill:currentColor}
 .clock:hover .cornermini,.timer:hover .cornermini,.cornermini:focus-visible{opacity:1}
 .cornermini:hover{background:#2a2a2a;color:#fff}
+#cclock{top:calc(var(--h)*.025);right:calc(var(--h)*.025)}
 .tctl .tx{width:30px;height:30px;border-radius:50%}
 @media (max-width:700px) and (orientation:portrait){
   #wrapper{--h:min(30vh,58vw);--w:calc(var(--h)*1.145)}
@@ -248,10 +249,17 @@ body.ui .rail .rb{pointer-events:auto}
 .plist .sw[aria-checked="true"]{background:#ece8dd}
 .plist .sw[aria-checked="true"]::after{transform:translateX(18px);background:#111}
 .plist .sw[aria-checked="true"]:hover{background:#fff}
-/* --- Data (senza anno), con gli stessi cartellini dell'orologio --- */
-#dateclock{--h:min(10vh,8vw);--w:calc(var(--h)*1.145);flex-direction:row}
-#dateclock .dtext{--w:calc(var(--h)*1.55)}
-#dateclock .dtext .half span{font-size:calc(var(--h)*.4);letter-spacing:.02em}
+/* --- Rullo dei secondi e data, a lato dei cartellini --- */
+.side{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--h)*.06);width:calc(var(--h)*.37)}
+.drum{position:relative;width:calc(var(--h)*.347);aspect-ratio:104/186;border-radius:calc(var(--h)*.04);background:#060606;overflow:hidden;
+  box-shadow:inset 0 0 0 2px #1d1d1d,inset 0 0 14px #000}
+.strip{display:block;width:100%;height:auto;will-change:transform}
+.drum .shade{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 22%,rgba(255,255,255,.04) 50%,rgba(0,0,0,.55) 78%,#000 100%)}
+.drum .mark{position:absolute;left:0;right:0;top:50%;height:max(2px,calc(var(--h)*.007));margin-top:calc(max(2px,var(--h)*.007)/-2);background:#e0452e}
+.dplate{font-weight:600;font-size:max(10px,calc(var(--h)*.043));letter-spacing:.16em;color:#8f8b80;text-align:center;line-height:1.35;white-space:nowrap}
+.dplate b{color:#ece8dd;font-weight:700}
+@media (prefers-reduced-motion:reduce){.strip{transition:none!important}}
 /* --- Finestra di sveglia / timer scaduto --- */
 #ringDlg{text-align:center;width:min(92vw,360px)}
 #ringClock{--h:88px;--w:calc(var(--h)*1.145);display:inline-flex;flex-direction:row;margin:4px 0 16px}
@@ -271,13 +279,12 @@ body.ui .rail .rb{pointer-events:auto}
   <main class="clock" aria-label="Orologio">
     <div class="card" id="h"><div class="ampm" id="ampm"></div></div>
     <div class="card" id="m"></div>
+    <div class="side">
+      <div class="drum"><svg class="strip" id="strip" viewBox="0 0 104 1260" aria-hidden="true"></svg><i class="shade"></i><i class="mark"></i></div>
+      <div class="dplate" id="dplate" aria-label="Data"></div>
+    </div>
     <button class="cornermini minibtn" id="cclock" title="Mostra come mini orologio" aria-label="Mostra come mini orologio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
   </main>
-  <section class="clock" id="dateclock" aria-label="Data">
-    <div class="card dtext" id="dw"></div>
-    <div class="card" id="dd"></div>
-    <div class="card dtext" id="dm"></div>
-  </section>
   <section class="timer" id="timer" aria-label="Timer pomodoro">
     <div class="card" id="pm"><div class="ampm" id="plabel"></div></div>
     <div class="card" id="ps"></div>
@@ -428,17 +435,44 @@ body.ui .rail .rb{pointer-events:auto}
   var ampm = document.getElementById('ampm');
   var pad = function(n){ return (n < 10 ? '0' : '') + n; };
 
-  /* Data (senza anno) nel fuso dell'orologio: giorno della settimana, giorno, mese */
-  var dw = new Card(document.getElementById('dw')), dd = new Card(document.getElementById('dd')), dm = new Card(document.getElementById('dm'));
-  var dfmt = null;
-  try { dfmt = new Intl.DateTimeFormat('it-IT', {timeZone: tz || undefined, weekday: 'short', day: '2-digit', month: 'short'}); } catch(e){}
+  /* Rullo dei secondi: tre giri di tacche, quello centrale è quello visibile. Ogni secondo si fa scivolare
+     di una tacca con una transizione lineare (un solo aggiornamento al secondo); a fine giro si torna al
+     giro centrale, che è identico. */
+  var SP = 7, CEN = 93, TOTAL = 1260, strip = document.getElementById('strip');
+  (function(){
+    var p = [];
+    for (var i = 0; i < 180; i++){
+      var kk = i % 60, y = i * SP, big = kk % 5 === 0, L = big ? 20 : 11;
+      p.push('<line x1="' + (96 - L) + '" y1="' + y + '" x2="96" y2="' + y + '" stroke="#d6d1c4" stroke-width="' + (big ? 2 : 1) + '"/>');
+      if (big) p.push('<text x="12" y="' + (y + 4) + '" font-size="13" font-weight="700" fill="' + (kk % 15 === 0 ? '#ece8dd' : '#8f8b80') + '" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">' + pad(kk) + '</text>');
+    }
+    strip.innerHTML = p.join('');
+  })();
+  function stripPos(i){ return 'translateY(' + ((CEN - i * SP) / TOTAL * 100) + '%)'; }
+  function drumTick(){
+    var d = new Date(), s = d.getSeconds(), rest = (1000 - d.getMilliseconds()) / 1000;
+    strip.style.transition = 'none';
+    strip.style.transform = stripPos(60 + s + (1 - rest));
+    strip.getBoundingClientRect(); /* forza l'applicazione del salto (offsetWidth non esiste sugli SVG) */
+    strip.style.transition = 'transform ' + rest.toFixed(3) + 's linear';
+    strip.style.transform = stripPos(60 + s + 1);
+  }
+  /* Data (senza anno) nel fuso dell'orologio: giorno della settimana, giorno e mese */
+  var dplate = document.getElementById('dplate'), dsig = '', dfmt = null;
+  try { dfmt = new Intl.DateTimeFormat('it-IT', {timeZone: tz || undefined, weekday: 'short', day: 'numeric', month: 'short'}); } catch(e){}
   function abbr(x){ return String(x || '').replace('.', '').toUpperCase().slice(0, 3); }
   function drawDate(){
     var o = {};
-    try { (dfmt || new Intl.DateTimeFormat('it-IT', {weekday: 'short', day: '2-digit', month: 'short'})).formatToParts(new Date()).forEach(function(x){ o[x.type] = x.value; }); } catch(e){ return; }
-    dw.set(abbr(o.weekday)); dd.set(o.day); dm.set(abbr(o.month));
+    try { (dfmt || new Intl.DateTimeFormat('it-IT', {weekday: 'short', day: 'numeric', month: 'short'})).formatToParts(new Date()).forEach(function(x){ o[x.type] = x.value; }); } catch(e){ return; }
+    var sig = o.weekday + '|' + o.day + '|' + o.month;
+    if (sig === dsig) return; dsig = sig;
+    dplate.textContent = '';
+    var b = document.createElement('b'); b.textContent = abbr(o.weekday);
+    dplate.appendChild(b); dplate.appendChild(document.createElement('br'));
+    dplate.appendChild(document.createTextNode(o.day + ' ' + abbr(o.month)));
   }
-  drawDate(); setInterval(drawDate, 1000);
+  function secLoop(){ drumTick(); drawDate(); setTimeout(secLoop, 1000 - Date.now() % 1000 + 5); }
+  secLoop();
 
   function parts(){
     var d = new Date();
