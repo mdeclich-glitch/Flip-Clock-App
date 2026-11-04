@@ -1,6 +1,6 @@
 {
   "name": "flip-clock-app",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Flip Clock e Screensaver Desktop",
   "main": "main.js",
   "scripts": {
@@ -13,6 +13,29 @@
   "license": "ISC",
   "devDependencies": {
     "electron": "^28.3.3",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.flipclock.screensaver",
+    "productName": "FlipClock-Screensaver",
+    "compression": "store",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "FlipClock-Screensaver.scr"
+    }
   }
 }

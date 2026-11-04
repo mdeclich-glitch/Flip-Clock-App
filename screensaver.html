@@ -1,105 +1,357 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Flip Clock Screensaver</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      user-select: none;
-    }
-    body {
-      background-color: #0d0d0d;
-      color: #ffffff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      overflow: hidden;
-      cursor: none; /* Nasconde il cursore */
-    }
-    .clock-container {
-      display: flex;
-      gap: 20px;
-      font-size: 8rem;
-      font-weight: bold;
-      background: #1a1a1a;
-      padding: 40px 60px;
-      border-radius: 20px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-      transition: transform 5s ease-in-out; /* Per la protezione OLED */
-    }
-    .card {
-      background: #262626;
-      padding: 20px 30px;
-      border-radius: 12px;
-      min-width: 160px;
-      text-align: center;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Flip Clock Screensaver</title>
+<style>
+:root {
+  --bg: #000;
+  --card: #141414;
+  --top: #ece8dd;
+  --bottom: #ece8dd;
+  box-sizing: border-box;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: none; /* Nasconde il mouse */
+}
+
+/* Wrapper esatto come in index_2.html per il calcolo delle proporzioni */
+#wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  --h: min(52vh, 30vw);
+  --w: calc(var(--h) * 1.145);
+}
+
+#stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* --- Look Flip Clock Analogico --- */
+.clock {
+  display: flex;
+  padding: calc(var(--h) * .035);
+  gap: calc(var(--h) * .03);
+  border-radius: calc(var(--h) * .075);
+  background: linear-gradient(180deg, #1c1c1c, #0b0b0b);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.8), 0 calc(var(--h) * .05) calc(var(--h) * .12) rgba(0,0,0,.9);
+  /* RIMOSSO il margin-right negativo: questo causava il taglio a destra su alcuni monitor! */
+  margin-right: 0;
+  flex-shrink: 0;
+}
+
+.card {
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  perspective: calc(var(--h) * 4);
+  background: #000;
+  border-radius: calc(var(--h) * .05);
+  box-shadow: 0 0 0 1px #050505, 0 2px 3px rgba(0,0,0,.7);
+  flex-shrink: 0;
+}
+
+.half {
+  position: absolute;
+  left: 0; right: 0;
+  height: 50%;
+  overflow: hidden;
+  background: var(--card);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.half span {
+  position: absolute;
+  left: 0; right: 0;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--h) * .68);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 1px rgba(0,0,0,.6);
+  z-index: 1;
+}
+
+.t {
+  top: 0;
+  background: linear-gradient(180deg, #262626, #151515);
+  border-radius: calc(var(--h) * .05) calc(var(--h) * .05) 0 0;
+  color: var(--top);
+}
+.t span { top: 0; }
+
+.b {
+  bottom: 0;
+  background: linear-gradient(180deg, #101010, #1c1c1c);
+  border-radius: 0 0 calc(var(--h) * .05) calc(var(--h) * .05);
+  color: var(--bottom);
+}
+.b span { bottom: 0; }
+
+.t::after, .b::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+}
+.t::after { background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.45)); }
+.b::after { background: linear-gradient(180deg, rgba(0,0,0,.5), rgba(255,255,255,.03)); }
+
+.flap-t { transform-origin: 50% 100%; z-index: 3; }
+.flap-b { transform-origin: 50% 0; transform: rotateX(90deg); z-index: 2; }
+
+.go .flap-t { animation: fall .3s ease-in forwards; }
+.go .flap-b { animation: rise .3s .3s ease-out forwards; }
+@keyframes fall { to { transform: rotateX(-90deg); } }
+@keyframes rise { to { transform: rotateX(0); } }
+
+.flap-t::before, .flap-b::before {
+  content: ""; position: absolute; inset: 0; background: #000; opacity: 0; z-index: 4; pointer-events: none;
+}
+.flap-b::before { opacity: .75; }
+.go .flap-t::before { animation: shadeIn .3s ease-in forwards; }
+.go .flap-b::before { animation: shadeOut .3s .3s ease-out forwards; }
+@keyframes shadeIn { to { opacity: .75; } }
+@keyframes shadeOut { to { opacity: 0; } }
+
+.card::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; z-index: 5;
+  height: max(2px, calc(var(--h) * .012));
+  margin-top: calc(max(2px, var(--h) * .012) / -2);
+  background: #000;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06);
+}
+
+.card::before {
+  content: ""; position: absolute; top: 50%; left: calc(var(--h) * -.012); right: calc(var(--h) * -.012);
+  height: calc(var(--h) * .07); margin-top: calc(var(--h) * -.035); z-index: 6; pointer-events: none; border-radius: 2px;
+  background: linear-gradient(180deg, #444, #161616) left center/calc(var(--h) * .03) 100% no-repeat,
+              linear-gradient(180deg, #444, #161616) right center/calc(var(--h) * .03) 100% no-repeat;
+}
+
+.ampm {
+  position: absolute; left: calc(var(--h) * .07); top: calc(var(--h) * .07); z-index: 6;
+  font-size: calc(var(--h) * .085); font-weight: 700; color: #9a968c;
+}
+.ampm span { display: inline-block; margin-right: .6em; letter-spacing: .1em; opacity: .3; }
+.ampm span.on { opacity: 1; color: #ece8dd; }
+
+/* --- Rullo Secondi e Data --- */
+.side {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: calc(var(--h) * .06); width: calc(var(--h) * .37);
+  flex-shrink: 0;
+}
+
+.drum {
+  position: relative; width: calc(var(--h) * .347); aspect-ratio: 104/186;
+  border-radius: calc(var(--h) * .04); background: #060606; overflow: hidden;
+  box-shadow: inset 0 0 0 2px #1d1d1d, inset 0 0 14px #000;
+  flex-shrink: 0;
+}
+
+.strip { display: block; width: 100%; height: auto; will-change: transform; }
+
+.drum .shade {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 22%, rgba(255,255,255,.04) 50%, rgba(0,0,0,.55) 78%, #000 100%);
+}
+
+.drum .mark {
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: max(2px, calc(var(--h) * .007));
+  margin-top: calc(max(2px, var(--h) * .007) / -2);
+  background: #e0452e;
+}
+
+.dplate {
+  font-weight: 600; font-size: max(10px, calc(var(--h) * .043)); letter-spacing: .16em;
+  color: #8f8b80; text-align: center; line-height: 1.35; white-space: nowrap;
+  flex-shrink: 0;
+}
+.dplate b { color: #ece8dd; font-weight: 700; }
+
+@media (max-width: 700px) and (orientation: portrait) {
+  #wrapper { --h: min(30vh, 58vw); --w: calc(var(--h) * 1.145); }
+  .clock { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .go .flap-t, .go .flap-b { animation-duration: .01s; animation-delay: 0s; }
+  .strip { transition: none !important; }
+}
+</style>
 </head>
 <body>
 
-  <div class="clock-container" id="clock">
-    <div class="card" id="hours">00</div>
-    <div>:</div>
-    <div class="card" id="minutes">00</div>
-    <div>:</div>
-    <div class="card" id="seconds">00</div>
+<div id="wrapper">
+  <div id="stage">
+    <main class="clock" aria-label="Orologio">
+      <!-- Cartellino Ore -->
+      <div class="card" id="h"><div class="ampm" id="ampm"></div></div>
+      <!-- Cartellino Minuti -->
+      <div class="card" id="m"></div>
+      <!-- Rullo dei Secondi e Data -->
+      <div class="side">
+        <div class="drum">
+          <svg class="strip" id="strip" viewBox="0 0 104 1260" aria-hidden="true"></svg>
+          <i class="shade"></i><i class="mark"></i>
+        </div>
+        <div class="dplate" id="dplate" aria-label="Data"></div>
+      </div>
+    </main>
   </div>
+</div>
 
-  <script>
-    const { ipcRenderer } = require('electron');
+<script>
+(function() {
+  const { ipcRenderer } = require('electron');
 
-    // 1. Aggiornamento Orologio
-    function updateClock() {
-      const now = new Date();
-      document.getElementById('hours').textContent = String(now.getHours()).padStart(2, '0');
-      document.getElementById('minutes').textContent = String(now.getMinutes()).padStart(2, '0');
-      document.getElementById('seconds').textContent = String(now.getSeconds()).padStart(2, '0');
+  var h24 = true, tz = 'Europe/Rome';
+  try { h24 = localStorage.getItem('flip24') !== '0'; } catch(e) {}
+
+  // Motore dei Cartellini a Scatto
+  function Card(el) {
+    this.el = el; this.val = null;
+    el.insertAdjacentHTML('beforeend',
+      '<div class="half t"><span></span></div><div class="half b"><span></span></div>' +
+      '<div class="half t flap-t"><span></span></div><div class="half b flap-b"><span></span></div>');
+    var s = el.querySelectorAll('.half span');
+    this.st = s[0]; this.sb = s[1]; this.ft = s[2]; this.fb = s[3];
+  }
+  
+  Card.prototype.set = function(v) {
+    var self = this;
+    if (this.val === null) { this.st.textContent = this.sb.textContent = this.ft.textContent = this.fb.textContent = v; this.val = v; return; }
+    if (v === this.val) return;
+    var old = this.val; this.val = v;
+    
+    this.st.textContent = v; this.sb.textContent = old; this.ft.textContent = old; this.fb.textContent = v;
+    this.el.classList.remove('go'); void this.el.offsetWidth;
+    this.el.classList.add('go');
+    
+    clearTimeout(this.t);
+    this.t = setTimeout(function() {
+      self.sb.textContent = v; self.ft.textContent = v;
+      self.el.classList.remove('go');
+    }, 620);
+  };
+
+  var hc = new Card(document.getElementById('h'));
+  var mc = new Card(document.getElementById('m'));
+  var ampm = document.getElementById('ampm');
+  var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+
+  // --- Motore del Rullo dei Secondi ---
+  var SP = 7, CEN = 93, TOTAL = 1260, strip = document.getElementById('strip');
+  (function() {
+    var p = [];
+    for (var i = 0; i < 180; i++) {
+      var kk = i % 60, y = i * SP, big = kk % 5 === 0, L = big ? 20 : 11;
+      p.push('<line x1="' + (96 - L) + '" y1="' + y + '" x2="96" y2="' + y + '" stroke="#d6d1c4" stroke-width="' + (big ? 2 : 1) + '"/>');
+      if (big) p.push('<text x="12" y="' + (y + 4) + '" font-size="13" font-weight="700" fill="' + (kk % 15 === 0 ? '#ece8dd' : '#8f8b80') + '" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">' + pad(kk) + '</text>');
     }
-    setInterval(updateClock, 1000);
-    updateClock();
+    strip.innerHTML = p.join('');
+  })();
 
-    // 2. Protezione OLED (Pixel Shift impercettibile ogni 60 secondi)
-    setInterval(() => {
-      const clock = document.getElementById('clock');
-      const randomX = (Math.random() - 0.5) * 30; // Shift tra -15px e +15px
-      const randomY = (Math.random() - 0.5) * 30;
-      clock.style.transform = `translate(${randomX}px, ${randomY}px)`;
-    }, 60000);
+  function stripPos(i) { return 'translateY(' + ((CEN - i * SP) / TOTAL * 100) + '%)'; }
+  function drumTick() {
+    var d = new Date(), s = d.getSeconds(), rest = (1000 - d.getMilliseconds()) / 1000;
+    strip.style.transition = 'none';
+    strip.style.transform = stripPos(60 + s + (1 - rest));
+    strip.getBoundingClientRect(); // Forza il re-layout
+    strip.style.transition = 'transform ' + rest.toFixed(3) + 's linear';
+    strip.style.transform = stripPos(60 + s + 1);
+  }
 
-    // 3. Gestione Uscita Sicura al Movimento Mouse / Pressione Tasto
-    let initialPos = null;
+  // Motore della Data
+  var dplate = document.getElementById('dplate'), dsig = '', dfmt = null;
+  try { dfmt = new Intl.DateTimeFormat('it-IT', { timeZone: tz || undefined, weekday: 'short', day: 'numeric', month: 'short' }); } catch(e) {}
+  function abbr(x) { return String(x || '').replace('.', '').toUpperCase().slice(0, 3); }
+  function drawDate() {
+    var o = {};
+    try { (dfmt || new Intl.DateTimeFormat('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })).formatToParts(new Date()).forEach(function(x) { o[x.type] = x.value; }); } catch(e) { return; }
+    var sig = o.weekday + '|' + o.day + '|' + o.month;
+    if (sig === dsig) return; dsig = sig;
+    dplate.textContent = '';
+    var b = document.createElement('b'); b.textContent = abbr(o.weekday);
+    dplate.appendChild(b); dplate.appendChild(document.createElement('br'));
+    dplate.appendChild(document.createTextNode(o.day + ' ' + abbr(o.month)));
+  }
 
-    window.addEventListener('mousemove', (e) => {
-      // Salva la posizione iniziale del mouse per evitare micro-movimenti automatici all'avvio
-      if (!initialPos) {
-        initialPos = { x: e.screenX, y: e.screenY };
-        return;
-      }
+  // Avvio Loop Secondi (60 FPS fluidi)
+  function secLoop() { drumTick(); drawDate(); setTimeout(secLoop, 1000 - Date.now() % 1000 + 5); }
+  secLoop();
 
-      // Calcola la distanza dello spostamento del mouse
-      const deltaX = Math.abs(e.screenX - initialPos.x);
-      const deltaY = Math.abs(e.screenY - initialPos.y);
+  // Tick Cartellini Ore/Minuti
+  function parts() {
+    var d = new Date();
+    try {
+      var r = { h: 0, m: 0 };
+      new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: tz })
+        .formatToParts(d).forEach(function(x) {
+          if (x.type === 'hour') r.h = (+x.value) % 24;
+          if (x.type === 'minute') r.m = +x.value;
+        });
+      return r;
+    } catch(e) { return { h: d.getHours(), m: d.getMinutes() }; }
+  }
 
-      // Tolleranza di 15 pixel prima di interpretare il movimento come intenzione d'uscita
-      if (deltaX > 15 || deltaY > 15) {
-        ipcRenderer.send('close-screensaver');
-      }
-    });
+  function tick() {
+    var t = parts(), hr = t.h;
+    if (h24) { 
+      ampm.innerHTML = ''; 
+    } else {
+      ampm.innerHTML = '<span' + (hr < 12 ? ' class="on"' : '') + '>AM</span><span' + (hr >= 12 ? ' class="on"' : '') + '>PM</span>';
+      hr = hr % 12 || 12;
+    }
+    hc.set(h24 ? pad(hr) : String(hr)); mc.set(pad(t.m));
+  }
+  tick(); setInterval(tick, 1000);
 
-    window.addEventListener('keydown', () => {
+  // --- Pixel Shift Anti-Burn-in per OLED ---
+  var SHIFT_X = 8, SHIFT_Y = 6;
+  var stage = document.getElementById('stage'), lastShift = '';
+  function pixelShift() {
+    var t = Date.now() / 1000;
+    var x = Math.round(SHIFT_X * Math.sin(2 * Math.PI * t / 1380));
+    var y = Math.round(SHIFT_Y * Math.sin(2 * Math.PI * t / 1860));
+    var v = 'translate(' + x + 'px,' + y + 'px)';
+    if (v !== lastShift) { lastShift = v; stage.style.transform = v; }
+  }
+  pixelShift(); setInterval(pixelShift, 5000);
+
+  // --- Logica Uscita Screensaver ---
+  let initPos = null;
+  window.addEventListener('mousemove', (e) => {
+    if (!initPos) { initPos = { x: e.screenX, y: e.screenY }; return; }
+    if (Math.abs(e.screenX - initPos.x) > 15 || Math.abs(e.screenY - initPos.y) > 15) {
       ipcRenderer.send('close-screensaver');
-    });
+    }
+  });
 
-    window.addEventListener('mousedown', () => {
-      ipcRenderer.send('close-screensaver');
-    });
-  </script>
+  window.addEventListener('keydown', () => ipcRenderer.send('close-screensaver'));
+  window.addEventListener('mousedown', () => ipcRenderer.send('close-screensaver'));
+
+})();
+</script>
 </body>
 </html>
