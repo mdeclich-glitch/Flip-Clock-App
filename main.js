@@ -81,7 +81,7 @@ function createWindow() {
   }
 
   mainWindow = new BrowserWindow(winOptions);
-  
+
   if (isSaverMode || isPreviewMode) {
     mainWindow.loadFile(pagePath('screensaver.html'));
   } else {
