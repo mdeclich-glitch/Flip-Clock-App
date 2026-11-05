@@ -225,8 +225,23 @@ html, body {
 (function() {
   const { ipcRenderer } = require('electron');
 
-  var h24 = true, tz = 'Europe/Rome';
-  try { h24 = localStorage.getItem('flip24') !== '0'; } catch(e) {}
+  var q = new URLSearchParams(location.search);
+  var BLANK = q.get('blank') === '1';          // vero sui monitor secondari
+  var h24 = q.get('h24') !== '0', tz;          // tz non impostato = fuso del sistema
+
+  /* Uscita: ignora gli input nei primi 800 ms (all'avvio ne arrivano di spuri) */
+  var ARM = Date.now() + 800, initPos = null;
+  function quit() { if (Date.now() > ARM) ipcRenderer.send('close-screensaver'); }
+  ['keydown', 'mousedown', 'wheel', 'touchstart'].forEach(function (ev) {
+    window.addEventListener(ev, quit, { passive: true });
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!initPos) { initPos = { x: e.screenX, y: e.screenY }; return; }
+    if (Math.abs(e.screenX - initPos.x) > 15 || Math.abs(e.screenY - initPos.y) > 15) quit();
+  });
+
+  /* Monitor secondari: solo nero, nessun orologio */
+  if (BLANK) { document.getElementById('wrapper').style.display = 'none'; return; }
 
   // Motore dei Cartellini a Scatto
   function Card(el) {
@@ -237,17 +252,17 @@ html, body {
     var s = el.querySelectorAll('.half span');
     this.st = s[0]; this.sb = s[1]; this.ft = s[2]; this.fb = s[3];
   }
-  
+
   Card.prototype.set = function(v) {
     var self = this;
     if (this.val === null) { this.st.textContent = this.sb.textContent = this.ft.textContent = this.fb.textContent = v; this.val = v; return; }
     if (v === this.val) return;
     var old = this.val; this.val = v;
-    
+
     this.st.textContent = v; this.sb.textContent = old; this.ft.textContent = old; this.fb.textContent = v;
     this.el.classList.remove('go'); void this.el.offsetWidth;
     this.el.classList.add('go');
-    
+
     clearTimeout(this.t);
     this.t = setTimeout(function() {
       self.sb.textContent = v; self.ft.textContent = v;
@@ -297,10 +312,6 @@ html, body {
     dplate.appendChild(document.createTextNode(o.day + ' ' + abbr(o.month)));
   }
 
-  // Avvio Loop Secondi (60 FPS fluidi)
-  function secLoop() { drumTick(); drawDate(); setTimeout(secLoop, 1000 - Date.now() % 1000 + 5); }
-  secLoop();
-
   // Tick Cartellini Ore/Minuti
   function parts() {
     var d = new Date();
@@ -317,15 +328,22 @@ html, body {
 
   function tick() {
     var t = parts(), hr = t.h;
-    if (h24) { 
-      ampm.innerHTML = ''; 
+    if (h24) {
+      ampm.innerHTML = '';
     } else {
       ampm.innerHTML = '<span' + (hr < 12 ? ' class="on"' : '') + '>AM</span><span' + (hr >= 12 ? ' class="on"' : '') + '>PM</span>';
       hr = hr % 12 || 12;
     }
     hc.set(h24 ? pad(hr) : String(hr)); mc.set(pad(t.m));
   }
-  tick(); setInterval(tick, 1000);
+
+  // Loop dei secondi: aggiorna rullo, data e cartellini nello stesso istante.
+  // Il try/catch evita che un errore fermi il ciclo.
+  function secLoop() {
+    try { drumTick(); drawDate(); tick(); } catch (e) { console.error(e); }
+    setTimeout(secLoop, 1000 - Date.now() % 1000 + 5);
+  }
+  secLoop();
 
   // --- Pixel Shift Anti-Burn-in per OLED ---
   var SHIFT_X = 8, SHIFT_Y = 6;
@@ -338,18 +356,6 @@ html, body {
     if (v !== lastShift) { lastShift = v; stage.style.transform = v; }
   }
   pixelShift(); setInterval(pixelShift, 5000);
-
-  // --- Logica Uscita Screensaver ---
-  let initPos = null;
-  window.addEventListener('mousemove', (e) => {
-    if (!initPos) { initPos = { x: e.screenX, y: e.screenY }; return; }
-    if (Math.abs(e.screenX - initPos.x) > 15 || Math.abs(e.screenY - initPos.y) > 15) {
-      ipcRenderer.send('close-screensaver');
-    }
-  });
-
-  window.addEventListener('keydown', () => ipcRenderer.send('close-screensaver'));
-  window.addEventListener('mousedown', () => ipcRenderer.send('close-screensaver'));
 
 })();
 </script>

@@ -18,7 +18,7 @@ const shellApi = shellApiMatch ? parseInt(shellApiMatch[1], 10) : 1;
 const targetFiles = ['index.html', 'mini.html', 'screensaver.html'];
 const files = {};
 
-for (const name of targetFiles) {
+for (const name of ['index.html', 'mini.html', 'screensaver.html']) {
   const filePath = path.join(root, name);
   if (fs.existsSync(filePath)) {
     const text = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');

@@ -515,9 +515,11 @@ body.ui .rail .rb{pointer-events:auto}
   fmtBtn.onclick = function(e){
     e.stopPropagation(); h24 = !h24;
     try { localStorage.setItem('flip24', h24 ? '1' : '0'); } catch(x){}
+    try { ipcRenderer.send('set-pref', { h24: h24 }); } catch (x) {}
     fmtLabel(); tick();
   };
   fmtLabel();
+  try { ipcRenderer.send('set-pref', { h24: h24 }); } catch (x) {}
 
   /* Pomodoro */
   var modes = [

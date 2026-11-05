@@ -1,41 +1,34 @@
 {
   "name": "flip-clock-app",
-  "version": "1.0.0",
-  "description": "Flip Clock e Screensaver Desktop",
+  "version": "1.4.7",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:scr": "electron-builder --win portable --x64",
     "manifest": "node tools/make-manifest.js",
-    "release": "node tools/release.js"
+    "release": "node tools/release.js",
+    "pack": "electron-builder --dir",
+    "saver": "electron . --screensaver",
+    "stub": "(if not exist build mkdir build) && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /nologo /target:winexe /out:build\\FlipClock.scr tools\\scr-stub.cs",
+    "dist": "npm run stub && electron-builder"
   },
-  "author": "Matteo",
-  "license": "ISC",
-  "devDependencies": {
-    "electron": "^28.3.3",
-    "electron-builder": "^26.18.0"
+  "liveUpdate": {
+    "baseUrl": "https://raw.githubusercontent.com/mdeclich-glitch/Flip-Clock-App/main/"
   },
   "build": {
-    "appId": "com.flipclock.screensaver",
-    "productName": "FlipClock-Screensaver",
-    "compression": "store",
+    "appId": "com.flipclock.app",
+    "productName": "Flip Clock",
     "directories": {
       "output": "dist"
     },
     "win": {
-      "target": [
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "artifactName": "${productName}.${ext}",
-      "signAndEditExecutable": false
+      "target": "nsis"
     },
-    "portable": {
-      "artifactName": "FlipClock-Screensaver.scr"
-    }
+    "extraFiles": [{ "from": "build/FlipClock.scr", "to": "FlipClock.scr" }]
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.5"
   }
 }
