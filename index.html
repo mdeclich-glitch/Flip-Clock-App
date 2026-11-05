@@ -749,7 +749,7 @@ body.ui .rail .rb{pointer-events:auto}
   var dlg = document.getElementById('dlg');
   var btns = ['spprev','spplay','spnext'].map(function(i){ return document.getElementById(i); });
   var spconn = document.getElementById('spconn'), ytconn = document.getElementById('ytconn');
-  function mk(label){ return {label: label, on: false, playing: false, title: '', artist: '', img: '', note: '', since: 0, last: 0, uri: '', pos: 0, dur: 0, posAt: 0}; }
+  function mk(label){ return {label: label, on: false, playing: false, title: '', artist: '', img: '', note: '', since: 0, last: 0, uri: '', pos: 0, dur: 0, posAt: 0, lastRaw: -1}; }
   var sp = mk('Spotify'), yt = mk('YouTube Music'), pe = mk('Pear Desktop');
   sp.on = !!LS.get('sp_rt'); yt.on = !!LS.get('yt_tok'); pe.on = LS.get('pe_on') === '1';
   var gnote = '', gt = 0;
@@ -785,12 +785,41 @@ body.ui .rail .rb{pointer-events:auto}
   }
   function setSrc(src, st, note){
     var now = Date.now(), p = !!(st && st.playing);
+    var wasPlaying = src.playing;
+    var estimated = curPos(src);              /* stima calcolata PRIMA di cambiare stato */
     if (p && !src.playing) src.since = now;
     if (p) src.last = now;
     src.playing = p;
-    src.title = st ? st.title : ''; src.artist = st ? st.artist : ''; src.img = st ? st.img : '';
+
+    var isNewTrack = src.title !== (st ? st.title : '');
+    src.title = st ? st.title : '';
+    src.artist = st ? st.artist : '';
+    src.img = st ? st.img : '';
     src.uri = st ? (st.uri || '') : '';
-    src.pos = st && st.pos ? st.pos : 0; src.dur = st && st.dur ? st.dur : 0; src.posAt = now;
+
+    var newPos = st && st.pos ? st.pos : 0;
+    var newDur = st && st.dur ? st.dur : 0;
+
+    if (isNewTrack) {
+      src.pos = newPos; src.posAt = now; src.lastRaw = newPos;
+    } else if (src === pe) {
+      /* Pear può restituire un elapsedSeconds "vecchio" (non aggiornato a ogni richiesta).
+         Un valore vecchio non è mai inferiore al valore grezzo precedente, mentre un vero
+         salto indietro (seek, ripetizione del brano) lo è. Quindi:
+         - si accetta sempre se in pausa, o se si passa da pausa a play;
+         - si accetta se il valore va avanti rispetto alla stima locale;
+         - si accetta un salto indietro solo se il valore grezzo è davvero diminuito;
+         - altrimenti si ignora e l'orologio locale continua a scorrere senza scatti. */
+      var rawWentBack = newPos < src.lastRaw - 1;
+      if (!p || !wasPlaying || rawWentBack || newPos > estimated) {
+        src.pos = newPos; src.posAt = now;
+      }
+      src.lastRaw = newPos;
+    } else {
+      src.pos = newPos; src.posAt = now;
+    }
+
+    src.dur = newDur;
     src.note = note || '';
     render();
   }
@@ -953,12 +982,19 @@ body.ui .rail .rb{pointer-events:auto}
       }
       if (!r.ok) throw new Error(String(r.status));
       return r.json().then(function(s){
+        var isPaused = !!s.isPaused;
+        var pos = parseFloat(s.elapsedSeconds) || 0;
+        var dur = parseFloat(s.songDuration) || 0;
+      
+      // Se Pear è in pausa o la canzone è cambiata, forza l'aggiornamento.
+      // Se sta suonando normalmente, lascia che sia il timer locale a far scorrere i secondi.
         setSrc(pe, {
-          playing: !s.isPaused, 
+          playing: !isPaused, 
           title: s.title || '', 
           artist: s.artist || '', 
           img: s.imageSrc || '',
-          pos: +s.elapsedSeconds || 0, dur: +s.songDuration || 0
+          pos: pos, 
+          dur: dur
         }, '');
       });
     }).catch(function(){ setSrc(pe, null, 'Pear Desktop: app non raggiungibile, è aperta?'); });
