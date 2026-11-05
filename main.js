@@ -14,8 +14,6 @@ const MODE = (argv.includes('--screensaver') || argv.includes('/s')) ? 'saver'
            : argv.some(x => x.startsWith('/p')) ? 'preview'
            : 'app';                       // /c e nessun argomento aprono l'app
 
-/* Eseguibile di Pear Desktop (YouTube Music) */
-const PEAR_EXE = 'C:\\Users\\matte\\AppData\\Local\\Programs\\youtube-music\\YouTube Music.exe';
 
 let mainWindow;
 let miniWindow = null; // mini orologio sempre in primo piano
@@ -267,10 +265,34 @@ ipcMain.on('ring-alert', () => {
   mainWindow.once('focus', () => { if (!mainWindow.isDestroyed()) mainWindow.flashFrame(false); });
 });
 
+/* Percorsi tipici di Pear Desktop (YouTube Music): prima quello salvato, poi quelli standard */
+function pearCandidates() {
+  const local = process.env.LOCALAPPDATA || path.join(app.getPath('home'), 'AppData', 'Local');
+  const pf = process.env.ProgramFiles || 'C:\\Program Files';
+  return [
+    readSettings().pearPath,
+    path.join(local, 'Programs', 'youtube-music', 'YouTube Music.exe'),
+    path.join(pf, 'YouTube Music', 'YouTube Music.exe'),
+  ].filter(Boolean);
+}
+
 /* Avvia Pear Desktop (se è già aperto Windows lo porta davanti) */
 ipcMain.handle('launch-pear', async () => {
-  if (!fs.existsSync(PEAR_EXE)) return { ok: false, error: 'not-found' };
-  const err = await shell.openPath(PEAR_EXE);
+  let exe = pearCandidates().find(p => fs.existsSync(p));
+  if (!exe) {
+    // Non trovato: chiede all'utente dove si trova e ricorda la scelta
+    const r = await dialog.showOpenDialog(mainWindow, {
+      title: 'Seleziona l\'eseguibile di Pear Desktop (YouTube Music)',
+      properties: ['openFile'],
+      filters: [{ name: 'Applicazioni', extensions: ['exe'] }]
+    });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, error: 'not-found' };
+    exe = r.filePaths[0];
+    try {
+      fs.writeFileSync(settingsFile(), JSON.stringify(Object.assign(readSettings(), { pearPath: exe })));
+    } catch (e) {}
+  }
+  const err = await shell.openPath(exe);
   return { ok: !err, error: err };
 });
 
