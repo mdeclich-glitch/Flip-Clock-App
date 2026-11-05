@@ -16,6 +16,7 @@ const MODE = (argv.includes('--screensaver') || argv.includes('/s')) ? 'saver'
 
 
 let mainWindow;
+let isForceClosing = false;
 let miniWindow = null; // mini orologio sempre in primo piano
 let locked = false; // vero quando lo schermo intero protetto è attivo
 let lastMiniState = []; // timer e pomodoro correnti, pubblicati dalla finestra principale
@@ -233,6 +234,10 @@ ipcMain.on('close-screensaver', () => app.quit());
 
 ipcMain.on('open-mini', (e, t) => openMini(t));
 ipcMain.on('mini-close', closeMini);
+ipcMain.on('force-quit', () => {
+  isForceClosing = true;
+  app.quit();
+});
 
 ipcMain.on('set-fullscreen', (event, makeFullscreen) => {
   locked = !!makeFullscreen;

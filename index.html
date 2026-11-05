@@ -403,6 +403,15 @@ body.ui .rail .rb{pointer-events:auto}
   </div>
 </dialog>
 
+<dialog id="quitOverlay">
+  <h2>Chiusura applicazione</h2>
+  <p>Attendere 15 secondi prima di poter chiudere l'applicazione...</p>
+  <div class="row">
+    <button id="quitCancel">Annulla</button>
+    <button id="quitConfirm" disabled style="background:#fff; color:#000; font-weight:bold; opacity:0.5; cursor:not-allowed;">Chiudi comunque (15)</button>
+  </div>
+</dialog>
+
 <div id="blackout" aria-hidden="true"></div>
 <script>
 (function(){
@@ -1469,6 +1478,53 @@ body.ui .rail .rb{pointer-events:auto}
     if ((lockDlg && lockDlg.open) || (dlg && dlg.open) || (panel && panel.open) || ringQ.length) return;
     if (Date.now() - lastAct > IDLE_MIN * 60000) blackout.classList.add('show');
   }, 5000);
+
+  /* ---------- Overlay di Chiusura (Alt+F4 / X) ---------- */
+  var quitOverlay = document.getElementById('quitOverlay');
+  var quitCancel = document.getElementById('quitCancel');
+  var quitConfirm = document.getElementById('quitConfirm');
+  var quitInterval;
+
+  ipcRenderer.on('show-quit-overlay', function() {
+    if (quitOverlay.open) return;
+    
+    var timeLeft = 15;
+    quitConfirm.disabled = true;
+    quitConfirm.style.opacity = '0.5';
+    quitConfirm.style.cursor = 'not-allowed';
+    quitConfirm.textContent = 'Chiudi comunque (' + timeLeft + ')';
+    
+    quitOverlay.showModal();
+
+    quitInterval = setInterval(function() {
+      timeLeft--;
+      if (timeLeft > 0) {
+        quitConfirm.textContent = 'Chiudi comunque (' + timeLeft + ')';
+      } else {
+        clearInterval(quitInterval);
+        quitConfirm.disabled = false;
+        quitConfirm.style.opacity = '1';
+        quitConfirm.style.cursor = 'pointer';
+        quitConfirm.textContent = 'Chiudi comunque';
+      }
+    }, 1000);
+  });
+
+  quitCancel.onclick = function() {
+    clearInterval(quitInterval);
+    quitOverlay.close();
+  };
+
+  quitOverlay.addEventListener('cancel', function() {
+    clearInterval(quitInterval);
+  });
+
+  quitConfirm.onclick = function() {
+    if (!quitConfirm.disabled) {
+      ipcRenderer.send('force-quit');
+    }
+  };
+
 })();
 </script>
 </body>
