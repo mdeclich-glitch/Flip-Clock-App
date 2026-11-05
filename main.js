@@ -160,17 +160,12 @@ function createWindow() {
   // Facoltativo (più rigido, blocca anche Alt+Tab): decommenta la riga sotto
   // mainWindow.on('blur', () => setTimeout(keepFront, 300));
 
-  // Intercetta il tentativo di chiusura della finestra con la "X"
+  // Intercetta il tentativo di chiusura della finestra (incluso Alt+F4 e la "X")
   mainWindow.on('close', (e) => {
-    const choice = dialog.showMessageBoxSync(mainWindow, {
-      type: 'question',
-      buttons: ['Annulla', 'Chiudi comunque'],
-      title: 'Conferma uscita',
-      message: 'Sei sicuro di voler chiudere l\'applicazione?'
-    });
-
-    if (choice === 0) {
+    if (!isForceClosing) {
       e.preventDefault();
+      // Invia un messaggio alla finestra per mostrare l'overlay di blocco
+      mainWindow.webContents.send('show-quit-overlay');
     }
   });
 }

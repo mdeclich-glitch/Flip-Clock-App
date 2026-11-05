@@ -1478,7 +1478,7 @@ body.ui .rail .rb{pointer-events:auto}
     if ((lockDlg && lockDlg.open) || (dlg && dlg.open) || (panel && panel.open) || ringQ.length) return;
     if (Date.now() - lastAct > IDLE_MIN * 60000) blackout.classList.add('show');
   }, 5000);
-
+  
   /* ---------- Overlay di Chiusura (Alt+F4 / X) ---------- */
   var quitOverlay = document.getElementById('quitOverlay');
   var quitCancel = document.getElementById('quitCancel');
@@ -1524,7 +1524,6 @@ body.ui .rail .rb{pointer-events:auto}
       ipcRenderer.send('force-quit');
     }
   };
-
 })();
 </script>
 </body>
