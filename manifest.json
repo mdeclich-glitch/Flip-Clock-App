@@ -1,9 +1,9 @@
 {
-  "version": "1.0.1",
-  "shellApi": 1,
+  "version": "1.5.0",
+  "shellApi": 5,
   "files": {
-    "index.html": "e7d451ff199b573c48b2d26bb1259b820ca8a99e338a9526950008b3a4ba5157",
+    "index.html": "10f83d6624265ea7af4afab7e35a4a42b804f2084a0133e6c1edc703ff1abfce",
     "mini.html": "1a4179219ccb596da97564bd4897a7f816c24721320ce5969e58d0b1a5d433f2",
-    "screensaver.html": "a718d824278b9b941ba98e4f2e203062659375735cb8a14e48132b2b8db760b6"
+    "screensaver.html": "6f10dfb7799e09267aa8e5c0228940b6895134f41750beed772e580ef2189381"
   }
 }
