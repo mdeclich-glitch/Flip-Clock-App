@@ -1,6 +1,6 @@
 {
   "name": "flip-clock-app",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -22,14 +22,15 @@
       "target": "nsis"
     },
     "nsis": {
-      "artifactName": "Flip-Clock-Setup-${version}.${ext}"
+      "artifactName": "Flip-Clock-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
     },
     "publish": [
       {
         "provider": "github",
         "owner": "mdeclich-glitch",
         "repo": "Flip-Clock-App",
-	"releaseType": "release"
+        "releaseType": "release"
       }
     ]
   },
