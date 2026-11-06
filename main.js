@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const pkg = require('./package.json');
+const { autoUpdater } = require('electron-updater');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html/screensaver.html non funzionino più: in quel caso serve rifare npm run dist. */
@@ -77,7 +78,7 @@ async function checkLiveUpdate() {
     if (cur && cmpVer(cur.version, have) > 0) have = cur.version;
     if (cmpVer(m.version, have) <= 0) return;
 
-    if ((m.shellApi || 1) > SHELL_API) { notifyUpdate({ version: m.version, needsInstall: true }); return; }
+    if ((m.shellApi || 1) > SHELL_API) { checkShellUpdate(); return; } // serve un nuovo involucro: lo scarica electron-updater
 
     const tmp = liveDir() + '.tmp';
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -98,6 +99,26 @@ async function checkLiveUpdate() {
   } catch (e) {
     console.warn('Aggiornamento non riuscito:', e.message);
   }
+}
+
+/* ---------- Aggiornamento automatico dell'involucro (main.js, Electron, dipendenze) ----------
+   Usa le Release di GitHub: scarica il nuovo installer in background e lo installa
+   alla chiusura dell'app, oppure subito quando premi il pulsante di aggiornamento. */
+let shellUpdate = false;     // vero quando un nuovo installer è stato scaricato
+let shellChecking = false;
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.on('update-downloaded', (info) => {
+  shellUpdate = true;
+  notifyUpdate({ version: info.version, needsInstall: false });
+});
+autoUpdater.on('error', (e) => console.warn('Aggiornamento app non riuscito:', e && e.message));
+async function checkShellUpdate() {
+  if (!app.isPackaged || shellUpdate || shellChecking) return;
+  shellChecking = true;
+  try { await autoUpdater.checkForUpdates(); }
+  catch (e) { console.warn('Controllo aggiornamento app non riuscito:', e && e.message); }
+  finally { shellChecking = false; }
 }
 
 /* ---------- Impostazioni condivise tra app e screensaver (es. formato 12/24 ore) ---------- */
@@ -297,7 +318,14 @@ ipcMain.handle('launch-pear', async () => {
 });
 
 ipcMain.handle('update-status', () => updateReady);
-ipcMain.on('restart-app', () => { app.relaunch(); app.exit(0); });
+ipcMain.on('restart-app', () => {
+  if (shellUpdate) {
+    isForceClosing = true;                  // senza questo l'overlay di chiusura bloccherebbe l'installazione
+    autoUpdater.quitAndInstall(false, true); // installa e riavvia
+  } else {
+    app.relaunch(); app.exit(0);
+  }
+});
 
 /* Istanza singola solo in modalità app: lo screensaver deve poter partire anche con l'app aperta */
 const gotLock = MODE !== 'app' || app.requestSingleInstanceLock();
@@ -317,6 +345,8 @@ app.whenReady().then(() => {
   createWindow();
   setTimeout(checkLiveUpdate, 8000);
   setInterval(checkLiveUpdate, 6 * 60 * 60 * 1000);
+  setTimeout(checkShellUpdate, 15000);
+  setInterval(checkShellUpdate, 6 * 60 * 60 * 1000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

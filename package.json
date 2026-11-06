@@ -1,15 +1,13 @@
 {
   "name": "flip-clock-app",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "manifest": "node tools/make-manifest.js",
-    "release": "node tools/release.js",
     "pack": "electron-builder --dir",
-    "saver": "electron . --screensaver",
-    "stub": "(if not exist build mkdir build) && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /nologo /target:winexe /out:build\\FlipClock.scr tools\\scr-stub.cs",
-    "dist": "npm run stub && electron-builder"
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
   },
   "liveUpdate": {
     "baseUrl": "https://raw.githubusercontent.com/mdeclich-glitch/Flip-Clock-App/main/"
@@ -23,12 +21,20 @@
     "win": {
       "target": "nsis"
     },
-    "extraFiles": [
+    "nsis": {
+      "artifactName": "Flip-Clock-Setup-${version}.${ext}"
+    },
+    "publish": [
       {
-        "from": "build/FlipClock.scr",
-        "to": "FlipClock.scr"
+        "provider": "github",
+        "owner": "mdeclich-glitch",
+        "repo": "Flip-Clock-App",
+	"releaseType": "release"
       }
     ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "electron": "^45.0.0",
