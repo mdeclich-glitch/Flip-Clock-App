@@ -101,10 +101,24 @@ dialog p{color:#999;margin-bottom:12px;font-size:13px}
 .quote-box{-webkit-user-select:none;user-select:none;cursor:default;background:#0a0a0a;border-left:3px solid #fff;padding:10px 12px;margin-bottom:14px;font-style:italic;color:#fff;border-radius:0 8px 8px 0}
 dialog input{width:100%;padding:10px;margin-bottom:14px;border-radius:8px;border:1px solid #2a2a2a;background:#0a0a0a;color:#fff;font:inherit}
 dialog .row{display:flex;gap:10px;justify-content:flex-end}
+/* --- Temi della cassa (solo .clock/.timer): attributo data-case su <html> --- */
+:root{--case-bg:linear-gradient(180deg,#1c1c1c,#0b0b0b);--case-hi:rgba(255,255,255,.07)}
+html[data-case="wood"]{--case-bg:repeating-linear-gradient(90deg,rgba(0,0,0,.09) 0 2px,rgba(255,255,255,.03) 2px 5px),linear-gradient(180deg,#7a4b26,#432712);--case-hi:rgba(255,220,170,.28)}
+html[data-case="alu"]{--case-bg:linear-gradient(180deg,#d9dbde,#8f9399);--case-hi:rgba(255,255,255,.7)}
+html[data-case="white"]{--case-bg:linear-gradient(180deg,#f4f4f1,#cdcdc7);--case-hi:rgba(255,255,255,.9)}
+html[data-case="navy"]{--case-bg:linear-gradient(180deg,#1f3254,#0b1424);--case-hi:rgba(150,180,255,.18)}
+html[data-case="red"]{--case-bg:linear-gradient(180deg,#8f2222,#4a0e0e);--case-hi:rgba(255,160,160,.2)}
+/* Colori di giorno e data (stanno sulla cassa, quindi cambiano con il tema) */
+:root{--plate:#8f8b80;--plate-b:#ece8dd;--plate-sh:transparent}
+html[data-case="wood"]{--plate:#e6d3b5;--plate-b:#fff3dc;--plate-sh:rgba(0,0,0,.45)}
+html[data-case="alu"]{--plate:#3a3d42;--plate-b:#0f1012;--plate-sh:rgba(255,255,255,.55)}
+html[data-case="white"]{--plate:#5a5a54;--plate-b:#161614;--plate-sh:rgba(255,255,255,.8)}
+html[data-case="navy"]{--plate:#a9b8d6;--plate-b:#eef2fa;--plate-sh:rgba(0,0,0,.4)}
+html[data-case="red"]{--plate:#e8bcbc;--plate-b:#fff;--plate-sh:rgba(0,0,0,.4)}
 /* --- Look flip clock analogico --- */
 .clock,.timer{padding:calc(var(--h)*.035);gap:calc(var(--h)*.03);border-radius:calc(var(--h)*.075);
-  background:linear-gradient(180deg,#1c1c1c,#0b0b0b);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+  background:var(--case-bg);
+  box-shadow:inset 0 1px 0 var(--case-hi),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
 
 /* Centratura visiva sulle schede di Ore e Minuti */
 .clock {
@@ -263,8 +277,8 @@ body.ui .rail .rb{pointer-events:auto}
 .drum .shade{position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 22%,rgba(255,255,255,.04) 50%,rgba(0,0,0,.55) 78%,#000 100%)}
 .drum .mark{position:absolute;left:0;right:0;top:50%;height:max(2px,calc(var(--h)*.007));margin-top:calc(max(2px,var(--h)*.007)/-2);background:#e0452e}
-.dplate{font-weight:600;font-size:max(10px,calc(var(--h)*.043));letter-spacing:.16em;color:#8f8b80;text-align:center;line-height:1.35;white-space:nowrap}
-.dplate b{color:#ece8dd;font-weight:700}
+.dplate{font-weight:600;font-size:max(11px,calc(var(--h)*.047));letter-spacing:.16em;color:var(--plate);text-shadow:0 1px 0 var(--plate-sh);text-align:center;line-height:1.35;white-space:nowrap}
+.dplate b{color:var(--plate-b);font-weight:700}
 @media (prefers-reduced-motion:reduce){.strip{transition:none!important}}
 /* --- Finestra di sveglia / timer scaduto --- */
 #ringDlg{text-align:center;width:min(92vw,360px)}
@@ -333,6 +347,7 @@ body.ui .rail .rb{pointer-events:auto}
     <button class="rb" id="fs" data-tip="Schermo intero" aria-label="Schermo intero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v-2a2 2 0 0 1 2 -2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2 -2v-2"/></svg></button>
     <button class="rb" id="pomo" data-tip="Pomodoro" aria-label="Pomodoro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7h11"/><path d="M6.5 17h11"/><path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z"/><path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z"/></svg></button>
     <button class="rb" id="fmt"></button>
+    <button class="rb" id="theme" data-tip="Tema cassa" aria-label="Tema cassa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25"/><path d="M8.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M16.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg></button>
     <button class="rb" id="clk" data-tip="Timer e sveglie" aria-label="Timer e sveglie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M12 10v3l2 2"/><path d="M7 4l-2.75 2"/><path d="M17 4l2.75 2"/></svg></button>
     <span class="rsep" id="rsep"></span>
     <button class="rb" id="spconn" data-tip="Collega Spotify" aria-label="Collega Spotify"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M8 11.973c2.5 -1.473 5.5 -.973 7.5 .527"/><path d="M9 15c1.5 -1 4 -1 5 .5"/><path d="M7 9c2 -1 6 -2 10 .5"/></svg></button>
@@ -529,6 +544,25 @@ body.ui .rail .rb{pointer-events:auto}
   };
   fmtLabel();
   try { ipcRenderer.send('set-pref', { h24: h24 }); } catch (x) {}
+
+  /* Tema della cassa: ciclo al clic, salvato in localStorage (il mini lo legge da lì) */
+  var CASES = [['dark','Nero'],['wood','Legno'],['alu','Alluminio'],['white','Bianco'],['navy','Blu notte'],['red','Rosso']];
+  var caseKey = 'dark', caseBtn = document.getElementById('theme');
+  try { caseKey = localStorage.getItem('flipCase') || 'dark'; } catch(e){}
+  function caseIdx(){ for (var i = 0; i < CASES.length; i++) if (CASES[i][0] === caseKey) return i; return 0; }
+  function applyCase(){
+    caseKey = CASES[caseIdx()][0];
+    document.documentElement.setAttribute('data-case', caseKey);
+    caseBtn.setAttribute('data-tip', 'Tema cassa: ' + CASES[caseIdx()][1] + ' (cambia)');
+    caseBtn.setAttribute('aria-label', caseBtn.getAttribute('data-tip'));
+    try { ipcRenderer.send('set-pref', { flipCase: caseKey }); } catch (x) {} /* lo screensaver lo legge da settings.json */
+  }
+  caseBtn.onclick = function(e){
+    e.stopPropagation(); caseKey = CASES[(caseIdx() + 1) % CASES.length][0];
+    try { localStorage.setItem('flipCase', caseKey); } catch(x){}
+    applyCase();
+  };
+  applyCase();
 
   /* Pomodoro */
   var modes = [

@@ -97,10 +97,17 @@ dialog p{color:#999;margin-bottom:12px;font-size:13px}
 .quote-box{-webkit-user-select:none;user-select:none;cursor:default;background:#0a0a0a;border-left:3px solid #fff;padding:10px 12px;margin-bottom:14px;font-style:italic;color:#fff;border-radius:0 8px 8px 0}
 dialog input{width:100%;padding:10px;margin-bottom:14px;border-radius:8px;border:1px solid #2a2a2a;background:#0a0a0a;color:#fff;font:inherit}
 dialog .row{display:flex;gap:10px;justify-content:flex-end}
+/* --- Temi della cassa (solo .clock/.timer): attributo data-case su <html> --- */
+:root{--case-bg:linear-gradient(180deg,#1c1c1c,#0b0b0b);--case-hi:rgba(255,255,255,.07)}
+html[data-case="wood"]{--case-bg:repeating-linear-gradient(90deg,rgba(0,0,0,.09) 0 2px,rgba(255,255,255,.03) 2px 5px),linear-gradient(180deg,#7a4b26,#432712);--case-hi:rgba(255,220,170,.28)}
+html[data-case="alu"]{--case-bg:linear-gradient(180deg,#d9dbde,#8f9399);--case-hi:rgba(255,255,255,.7)}
+html[data-case="white"]{--case-bg:linear-gradient(180deg,#f4f4f1,#cdcdc7);--case-hi:rgba(255,255,255,.9)}
+html[data-case="navy"]{--case-bg:linear-gradient(180deg,#1f3254,#0b1424);--case-hi:rgba(150,180,255,.18)}
+html[data-case="red"]{--case-bg:linear-gradient(180deg,#8f2222,#4a0e0e);--case-hi:rgba(255,160,160,.2)}
 /* --- Look flip clock analogico --- */
 .clock,.timer{padding:calc(var(--h)*.035);gap:calc(var(--h)*.03);border-radius:calc(var(--h)*.075);
-  background:linear-gradient(180deg,#1c1c1c,#0b0b0b);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+  background:var(--case-bg);
+  box-shadow:inset 0 1px 0 var(--case-hi),inset 0 -1px 0 rgba(0,0,0,.8),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
 .card{background:#000;border-radius:calc(var(--h)*.05);box-shadow:0 0 0 1px #050505,0 2px 3px rgba(0,0,0,.7)}
 .half span{font-weight:700;letter-spacing:-.03em;text-shadow:0 1px 1px rgba(0,0,0,.6);z-index:1}
 .t{background:linear-gradient(180deg,#262626,#151515);border-radius:calc(var(--h)*.05) calc(var(--h)*.05) 0 0}
@@ -179,6 +186,19 @@ body:hover .mctl{opacity:1}
 .mctl button{width:22px;height:22px;padding:0;border:0;border-radius:50%;background:rgba(0,0,0,.75);color:#bbb;display:grid;place-items:center}
 .mctl button:hover{background:#2a2a2a;color:#fff}
 .mctl svg{width:12px;height:12px;fill:currentColor}
+/* --- Click-through e ridimensionamento --- */
+html.ct,body.ct{-webkit-app-region:no-drag}
+#mstage{transition:opacity .25s}
+body.ct.near #mstage{opacity:.35} /* click-through: l'orologio diventa semitrasparente solo quando il mouse gli passa sopra */
+/* Maniglia di spostamento: il mini è sempre click-through, quindi si sposta solo da qui (trascinamento gestito da main.js) */
+#mv{-webkit-app-region:no-drag;position:fixed;top:28px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.75);color:#bbb;place-items:center;cursor:move;opacity:0;transition:opacity .2s;z-index:20}
+#mv:hover{background:#2a2a2a;color:#fff}
+#mv svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#mv{display:grid}
+body.hov #mv{opacity:1}
+#grip{-webkit-app-region:no-drag;position:fixed;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;opacity:0;transition:opacity .2s;z-index:20;
+  background:linear-gradient(135deg,transparent 0 50%,#bbb 50% 58%,transparent 58% 70%,#bbb 70% 78%,transparent 78%)}
+body:hover #grip,body.hov #grip,body.hov #back,body.hov .mctl{opacity:1}
 </style>
 </head>
 <body>
@@ -191,6 +211,8 @@ body:hover .mctl{opacity:1}
   <button id="mre" title="Riparti da capo" aria-label="Riparti da capo"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
 </div>
 <button id="back" title="Torna all'orologio" aria-label="Torna all'orologio"><svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-6.3 6.3-1.4-1.4L17.6 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg></button>
+<div id="mv" title="Sposta"><svg viewBox="0 0 24 24"><path d="M18 9l3 3l-3 3M15 12h6M6 9l-3 3l3 3M3 12h6M9 6l3 -3l3 3M12 3v6M15 18l-3 3l-3 -3M12 15v6"/></svg></div>
+<div id="grip" title="Ridimensiona"></div>
 <script>
 const { ipcRenderer } = require('electron');
 (function(){
@@ -279,6 +301,50 @@ const { ipcRenderer } = require('electron');
   document.getElementById('mgo').onclick = function(){ if (cur) ipcRenderer.send('mini-cmd', {src: cur.src, id: cur.id, cmd: 'toggle'}); };
   document.getElementById('mre').onclick = function(){ if (cur) ipcRenderer.send('mini-cmd', {src: cur.src, id: cur.id, cmd: 'reset'}); };
   document.getElementById('back').onclick = function(){ ipcRenderer.send('mini-close'); };
+
+  /* Tema della cassa: lo sceglie la finestra principale (localStorage condiviso) */
+  var lastCase = null;
+  function syncCase(){
+    var k = 'dark'; try { k = localStorage.getItem('flipCase') || 'dark'; } catch(e){}
+    if (k !== lastCase){ lastCase = k; document.documentElement.setAttribute('data-case', k); }
+  }
+  syncCase(); setInterval(syncCase, 1000); window.addEventListener('storage', syncCase);
+
+  /* Ridimensionamento: maniglia in basso a destra, proporzioni fisse (la finestra la ridimensiona main.js) */
+  var grip = document.getElementById('grip'), rs = null;
+  grip.addEventListener('pointerdown', function(e){ busy = true; rs = {x: e.screenX, w: window.innerWidth}; grip.setPointerCapture(e.pointerId); e.preventDefault(); });
+  grip.addEventListener('pointermove', function(e){ if (rs) ipcRenderer.send('mini-resize', rs.w + (e.screenX - rs.x)); });
+  function endResize(){ if (!rs) return; rs = null; busy = false; try { ipcRenderer.send('set-pref', {miniW: window.outerWidth}); } catch(e){} }
+  grip.addEventListener('pointerup', endResize); grip.addEventListener('pointercancel', endResize);
+
+  /* Click-through fisso: i clic attraversano sempre la finestra; solo l'angolo dei comandi
+     (sposta, ridimensiona, chiudi) resta cliccabile. main.js lo applica alla finestra. */
+  var backBtn = document.getElementById('back'), mvBtn = document.getElementById('mv');
+  var hot = false, isNear = false, busy = false; // busy: trascinamento in corso, i comandi restano attivi
+  var mvDrag = null;
+  mvBtn.addEventListener('pointerdown', function(e){ mvDrag = {x: e.screenX, y: e.screenY}; busy = true; mvBtn.setPointerCapture(e.pointerId); ipcRenderer.send('mini-move', {start: true}); e.preventDefault(); });
+  mvBtn.addEventListener('pointermove', function(e){ if (mvDrag) ipcRenderer.send('mini-move', {dx: e.screenX - mvDrag.x, dy: e.screenY - mvDrag.y}); });
+  function endMove(){ if (!mvDrag) return; mvDrag = null; busy = false; }
+  mvBtn.addEventListener('pointerup', endMove); mvBtn.addEventListener('pointercancel', endMove);
+  document.documentElement.classList.add('ct'); document.body.classList.add('ct');
+  function updateNear(){ document.body.classList.toggle('near', isNear && !hot); }
+  function near(el, x, y){
+    if (el.hidden) return false;
+    var r = el.getBoundingClientRect();
+    if (!r.width) return false; // elemento nascosto
+    return x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
+  }
+  function setHot(h){
+    if (busy) h = true;
+    document.body.classList.toggle('hov', h);
+    if (h !== hot){ hot = h; ipcRenderer.send('mini-hot', h); }
+    updateNear();
+  }
+  document.addEventListener('mousemove', function(e){
+    setHot(near(backBtn, e.clientX, e.clientY) || near(grip, e.clientX, e.clientY) || near(mvBtn, e.clientX, e.clientY) || near(mctl, e.clientX, e.clientY));
+  });
+  document.addEventListener('mouseleave', function(){ setHot(false); });
+  ipcRenderer.on('mini-near', function(e, n){ isNear = !!n; updateNear(); });
 })();
 </script>
 </body>

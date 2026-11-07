@@ -7,7 +7,7 @@ const { autoUpdater } = require('electron-updater');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html/screensaver.html non funzionino più: in quel caso serve rifare npm run dist. */
-const SHELL_API = 5;
+const SHELL_API = 6; // 6: mini ridimensionabile + click-through fisso (nuovi canali IPC mini-resize, mini-hot, mini-near)
 
 /* Modalità di avvio: app normale, screensaver (/s o --screensaver) oppure anteprima (/p) */
 const argv = process.argv.map(s => s.toLowerCase());
@@ -204,7 +204,9 @@ function openMini(target) {
   mainWindow.setKiosk(false);
   mainWindow.setAlwaysOnTop(false);
 
-  const w = 280, h = 128;
+  const s0 = readSettings();
+  const w = Math.min(MINI_MAX_W, Math.max(MINI_MIN_W, Math.round(Number(s0.miniW) || 280)));
+  const h = Math.round(w / MINI_ASPECT);
   const wa = screen.getPrimaryDisplay().workArea;
   miniWindow = new BrowserWindow({
     width: w, height: h,
@@ -218,9 +220,56 @@ function openMini(target) {
   miniWindow.setAlwaysOnTop(true, 'screen-saver');
   try { miniWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch (e) {}
   miniWindow.loadFile(pagePath('mini.html'));
-  miniWindow.on('closed', () => { miniWindow = null; });
+  miniWindow.setIgnoreMouseEvents(true, { forward: true }); // click-through fisso: i clic attraversano il mini
+  miniNearTimer = setInterval(pollMiniNear, 100);
+  miniWindow.on('closed', () => {
+    miniWindow = null; miniNear = false; clearInterval(miniNearTimer);
+  });
   mainWindow.minimize();
 }
+
+/* ---------- Mini: ridimensionamento e click-through ---------- */
+const MINI_ASPECT = 280 / 128, MINI_MIN_W = 140, MINI_MAX_W = 900;
+let miniNear = false, miniNearTimer = null;
+/* Con il click-through il mouse "attraversa" la finestra, quindi la sua posizione si legge da qui:
+   il mini si schiarisce (trasparenza) solo mentre il cursore gli passa sopra */
+function pollMiniNear() {
+  if (!miniWindow || miniWindow.isDestroyed()) return;
+  const p = screen.getCursorScreenPoint(), b = miniWindow.getBounds();
+  const near = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+  if (near !== miniNear) { miniNear = near; miniWindow.webContents.send('mini-near', near); }
+}
+/* Il mini è sempre click-through: torna cliccabile solo mentre il mouse è sull'angolo dei comandi */
+ipcMain.on('mini-hot', (e, hot) => {
+  if (miniWindow && !miniWindow.isDestroyed()) miniWindow.setIgnoreMouseEvents(!hot, { forward: true });
+});
+/* Sposta il mini (trascinamento dalla maniglia): la pagina manda lo spostamento dal punto di partenza */
+let miniOrigin = null;
+ipcMain.on('mini-move', (e, m) => {
+  if (!miniWindow || miniWindow.isDestroyed() || !m) return;
+  if (m.start) { miniOrigin = miniWindow.getBounds(); return; }
+  if (!miniOrigin) return;
+  const o = miniOrigin;
+  let x = o.x + (Number(m.dx) || 0), y = o.y + (Number(m.dy) || 0);
+  const wa = screen.getDisplayMatching({ x, y, width: o.width, height: o.height }).workArea;
+  x = Math.max(wa.x - o.width + 40, Math.min(x, wa.x + wa.width - 40));
+  y = Math.max(wa.y, Math.min(y, wa.y + wa.height - 40));
+  miniWindow.setBounds({ x, y, width: o.width, height: o.height }); // stessa misura: evita derive con lo scaling di Windows
+});
+/* Ridimensiona mantenendo le proporzioni e senza uscire dall'area di lavoro */
+ipcMain.on('mini-resize', (e, req) => {
+  if (!miniWindow || miniWindow.isDestroyed()) return;
+  const w = Math.round(Math.min(MINI_MAX_W, Math.max(MINI_MIN_W, Number(req) || 0)));
+  if (!w) return;
+  const h = Math.round(w / MINI_ASPECT);
+  const b = miniWindow.getBounds();
+  const wa = screen.getDisplayMatching(b).workArea;
+  miniWindow.setBounds({
+    x: Math.max(wa.x, Math.min(b.x, wa.x + wa.width - w)),
+    y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - h)),
+    width: w, height: h
+  });
+});
 
 function closeMini() {
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
@@ -241,7 +290,7 @@ function startScreensaver() {
     });
     w.setAlwaysOnTop(true, 'screen-saver');
     w.loadFile(pagePath('screensaver.html'), {
-      query: { blank: d.id === primary ? '0' : '1', h24: s.h24 === false ? '0' : '1' }
+      query: { blank: d.id === primary ? '0' : '1', h24: s.h24 === false ? '0' : '1', case: s.flipCase || 'dark' }
     });
     w.once('ready-to-show', () => w.show());
   });
