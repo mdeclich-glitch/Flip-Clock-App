@@ -19,6 +19,12 @@ A feature-rich desktop application combining an aesthetic retro flip clock displ
 
 ---
 
+## 📷 Screenshots
+
+<img width="2360" height="1588" alt="Flip Clock Main Interface" src="https://github.com/user-attachments/assets/e86026ee-de65-4489-a3da-e3708f9a8b5f" />
+
+---
+
 ## 🎵 Music Integrations Setup
 
 ### 🟢 Spotify Integration
@@ -38,6 +44,8 @@ To control playback from Pear Desktop:
 ## 🖥️ Installing the Windows Screensaver
 
 The app installer generates a screensaver file (`.scr`) directly in the application installation directory.
+
+<img width="860" height="1070" alt="Screensaver Settings" src="https://github.com/user-attachments/assets/56424a73-3ce8-4cc3-8571-e830e8f4b080" />
 
 1. Press `Win + R`, type `%LOCALAPPDATA%\Programs`, and press `Enter`.
 2. Open the **`flip-clock-app`** folder.
@@ -61,9 +69,3 @@ The app installer generates a screensaver file (`.scr`) directly in the applicat
 - **Framework/Platform:** Electron / Desktop Web Technologies
 - **Integrations:** Spotify Web API, Pear Desktop Local API Server
 - **Platform Support:** Windows
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
