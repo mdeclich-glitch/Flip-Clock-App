@@ -1,9 +1,9 @@
 {
-  "version": "1.7.1",
+  "version": "1.7.2",
   "shellApi": 6,
   "files": {
-    "index.html": "d2cc54a56464f4c82decbf8133bf88f9d10916f7d483addb9b92a94b1b949fca",
-    "mini.html": "eb32a446c07477601f3009366a3166793206dce9e4c07b9b8d8e9351404210da",
+    "index.html": "d1af49eb39104080c6b66ec915f2d3abde92aacdf5e97b0087dd7519ab568d2c",
+    "mini.html": "008da8e4f9f0f5c93baaee5e0c651dad7f8de1d7893352fad31ba637aed672b3",
     "screensaver.html": "50761b1d9243b0c5465f352e8bd007feb5237284c63bd101df3d448541d92a21"
   }
 }
