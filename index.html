@@ -110,6 +110,8 @@ dialog .row{display:flex;gap:10px;justify-content:flex-end}
 :root[data-case="red"],.sw[data-case="red"]{--case-bg:linear-gradient(180deg,#8f2222,#4a0e0e);--case-hi:rgba(255,160,160,.2)}
 :root[data-case="orange"],.sw[data-case="orange"]{--case-bg:linear-gradient(180deg,#f07a24,#b8470f);--case-hi:rgba(255,215,170,.4)}
 :root[data-case="green"],.sw[data-case="green"]{--case-bg:linear-gradient(180deg,#24503a,#0f2a1d);--case-hi:rgba(150,230,190,.18)}
+:root[data-case="grain"],.sw[data-case="grain"]{--case-bg:linear-gradient(180deg,rgba(255,232,196,.18),rgba(255,232,196,0) 20%,rgba(0,0,0,0) 68%,rgba(0,0,0,.4)),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 400' preserveAspectRatio='none' width='900' height='400'%3E %3Cfilter id='f' x='0' y='0' width='1' height='1' color-interpolation-filters='sRGB'%3E %3CfeTurbulence type='fractalNoise' baseFrequency='0.0025 0.09' numOctaves='4' seed='7' result='t1'/%3E %3CfeColorMatrix in='t1' values='1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 1' result='g1'/%3E %3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.008' numOctaves='2' seed='21' result='t2'/%3E %3CfeColorMatrix in='t2' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0 1' result='w'/%3E %3CfeDisplacementMap in='g1' in2='w' scale='34' xChannelSelector='R' yChannelSelector='G' result='d'/%3E %3CfeColorMatrix in='d' values='1.8 0 0 0 -.42  1.8 0 0 0 -.42  1.8 0 0 0 -.42  0 0 0 0 1' result='c'/%3E %3CfeComponentTransfer in='c' result='col'%3E %3CfeFuncR type='table' tableValues='.26 .44 .60 .72'/%3E %3CfeFuncG type='table' tableValues='.13 .26 .38 .47'/%3E %3CfeFuncB type='table' tableValues='.05 .12 .20 .27'/%3E %3C/feComponentTransfer%3E %3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.7' numOctaves='1' seed='4' result='t3'/%3E %3CfeColorMatrix in='t3' values='1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 1' result='p'/%3E %3CfeComposite in='col' in2='p' operator='arithmetic' k1='0' k2='1' k3='.22' k4='-.11'/%3E %3C/filter%3E %3Crect x='-100' y='-100' width='1100' height='600' filter='url(%23f)'/%3E %3C/svg%3E");--case-hi:rgba(255,228,185,.3)}
+:root[data-case="grain"] .clock,:root[data-case="grain"] .timer,.sw[data-case="grain"]{background-size:100% 100%}
 /* Colori di giorno e data (stanno sulla cassa, quindi cambiano con il tema) */
 :root,.sw[data-case="dark"]{--plate:#8f8b80;--plate-b:#ece8dd;--plate-sh:transparent}
 :root[data-case="wood"],.sw[data-case="wood"]{--plate:#e6d3b5;--plate-b:#fff3dc;--plate-sh:rgba(0,0,0,.45)}
@@ -119,6 +121,7 @@ dialog .row{display:flex;gap:10px;justify-content:flex-end}
 :root[data-case="red"],.sw[data-case="red"]{--plate:#e8bcbc;--plate-b:#fff;--plate-sh:rgba(0,0,0,.4)}
 :root[data-case="orange"],.sw[data-case="orange"]{--plate:#ffe6cc;--plate-b:#fff;--plate-sh:rgba(70,25,0,.5)}
 :root[data-case="green"],.sw[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,.4)}
+:root[data-case="grain"],.sw[data-case="grain"]{--plate:#e6d3b5;--plate-b:#fff3dc;--plate-sh:rgba(0,0,0,.45)}
 /* --- Look flip clock analogico --- */
 .clock,.timer{padding:calc(var(--h)*.035);gap:calc(var(--h)*.03);border-radius:calc(var(--h)*.075);
   background:var(--case-bg);
@@ -303,35 +306,6 @@ body.ui .cpal.open{pointer-events:auto}
 #ringDlg .row button{padding:12px 22px;border-radius:12px;font-weight:600}
 #ringStop{background:#ece8dd;color:#111;border:0}
 #ringStop:hover{background:#fff}
-
-/* ===== TEMI ===== */
-/* Legno: venature continue attraverso la cerniera, porzione diversa per ogni cartellino */
-body[data-theme="wood"]{--top:#f1e3c4;--bottom:#f1e3c4;--ui:#d9c7a0;--label:#c9b58a;--grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='500'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.09' numOctaves='3' seed='11' result='n'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.01 0.02' numOctaves='2' seed='3' result='w'/%3E%3CfeDisplacementMap in='n' in2='w' scale='60' xChannelSelector='R' yChannelSelector='G'/%3E%3CfeColorMatrix values='0 0 0 0 .22  0 0 0 0 .11  0 0 0 0 .04  1.9 0 0 0 -.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%238a5a33'/%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E")}
-body[data-theme="wood"] .clock,body[data-theme="wood"] .timer{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.65)),var(--grain);background-size:cover}
-body[data-theme="wood"] .t,body[data-theme="wood"] .b{background-image:var(--grain);background-size:200% 200%;background-color:#5a3a20}
-body[data-theme="wood"] .t{background-position:0 0}
-body[data-theme="wood"] .b{background-position:0 100%}
-body[data-theme="wood"] .card:nth-child(2) .t{background-position:100% 0}
-body[data-theme="wood"] .card:nth-child(2) .b{background-position:100% 100%}
-body[data-theme="wood"] .half span{text-shadow:0 1px 0 rgba(255,255,255,.18),0 -1px 2px rgba(0,0,0,.8)}
-/* Nixie: cifre arancioni con alone su fondo scurissimo */
-body[data-theme="nixie"]{--top:#ff9a3c;--bottom:#ff9a3c;--ui:#c98a4a;--label:#a86a2c}
-body[data-theme="nixie"] .clock,body[data-theme="nixie"] .timer{background:linear-gradient(180deg,#1a0f08,#080402)}
-body[data-theme="nixie"] .t{background:linear-gradient(180deg,#140b06,#0b0603)}
-body[data-theme="nixie"] .b{background:linear-gradient(180deg,#0b0603,#140b06)}
-body[data-theme="nixie"] .half span{font-weight:400;text-shadow:0 0 .04em #ffd29a,0 0 .12em #ff7a1a,0 0 .3em rgba(255,100,10,.7)}
-/* Ambra LED: piatto, monocromatico, ottimo per OLED */
-body[data-theme="amber"]{--top:#ffb000;--bottom:#ffb000;--ui:#b47e00;--label:#8a6000}
-body[data-theme="amber"] .clock,body[data-theme="amber"] .timer{background:#050400;box-shadow:inset 0 0 0 1px #1a1400}
-body[data-theme="amber"] .t,body[data-theme="amber"] .b{background:#0a0800}
-body[data-theme="amber"] .t::after,body[data-theme="amber"] .b::after{background:repeating-linear-gradient(90deg,rgba(0,0,0,.35) 0 1px,transparent 1px 4px)}
-body[data-theme="amber"] .half span{font-weight:600;letter-spacing:.02em;text-shadow:0 0 .1em rgba(255,176,0,.55)}
-/* Terminale CRT: verde fosforo con scanline */
-body[data-theme="crt"]{--top:#4dff7a;--bottom:#4dff7a;--ui:#2fb356;--label:#1f8a41}
-body[data-theme="crt"] .clock,body[data-theme="crt"] .timer{background:#020a04}
-body[data-theme="crt"] .t,body[data-theme="crt"] .b{background:#04120a}
-body[data-theme="crt"] .t::after,body[data-theme="crt"] .b::after{background:repeating-linear-gradient(180deg,rgba(0,0,0,.4) 0 2px,transparent 2px 4px)}
-body[data-theme="crt"] .half span{font-family:"Courier New",monospace;font-weight:700;text-shadow:0 0 .08em rgba(77,255,122,.8),0 0 .25em rgba(77,255,122,.35)}
 </style>
 </head>
 <body>
@@ -388,7 +362,6 @@ body[data-theme="crt"] .half span{font-family:"Courier New",monospace;font-weigh
     <button class="rb" id="fs" data-tip="Schermo intero" aria-label="Schermo intero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v-2a2 2 0 0 1 2 -2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2 -2v-2"/></svg></button>
     <button class="rb" id="pomo" data-tip="Pomodoro" aria-label="Pomodoro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7h11"/><path d="M6.5 17h11"/><path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z"/><path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z"/></svg></button>
     <button class="rb" id="fmt"></button>
-    <button class="rb" id="thm" data-tip="Tema" aria-label="Cambia tema"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25"/><path d="M8.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M16.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg></button>
     <button class="rb" id="theme" data-tip="Tema cassa" aria-label="Tema cassa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25"/><path d="M8.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M16.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg></button>
     <button class="rb" id="clk" data-tip="Timer e sveglie" aria-label="Timer e sveglie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M12 10v3l2 2"/><path d="M7 4l-2.75 2"/><path d="M17 4l2.75 2"/></svg></button>
     <span class="rsep" id="rsep"></span>
@@ -588,7 +561,7 @@ body[data-theme="crt"] .half span{font-family:"Courier New",monospace;font-weigh
   try { ipcRenderer.send('set-pref', { h24: h24 }); } catch (x) {}
 
   /* Tema della cassa: palette con tutti i colori, scelta salvata in localStorage (il mini la legge da lì) */
-  var CASES = [['dark','Nero'],['wood','Legno'],['alu','Alluminio'],['white','Bianco'],['navy','Blu notte'],['red','Rosso'],['orange','Arancione'],['green','Verde scuro']];
+  var CASES = [['dark','Nero'],['wood','Legno'],['grain','Legno naturale'],['alu','Alluminio'],['white','Bianco'],['navy','Blu notte'],['red','Rosso'],['orange','Arancione'],['green','Verde scuro']];
   var caseKey = 'dark', caseBtn = document.getElementById('theme'), casePal = document.createElement('div');
   try { caseKey = localStorage.getItem('flipCase') || 'dark'; } catch(e){}
   function caseIdx(){ for (var i = 0; i < CASES.length; i++) if (CASES[i][0] === caseKey) return i; return 0; }
@@ -850,26 +823,6 @@ body[data-theme="crt"] .half span{font-family:"Courier New",monospace;font-weigh
   var sp = mk('Spotify'), yt = mk('YouTube Music'), pe = mk('Pear Desktop');
   sp.on = !!LS.get('sp_rt'); yt.on = !!LS.get('yt_tok'); pe.on = LS.get('pe_on') === '1';
   var gnote = '', gt = 0;
-
-  /* ---------- Temi (condivisi col mini tramite localStorage) ---------- */
-  var THEMES = [['classic','Classico'],['wood','Legno'],['nixie','Nixie'],['amber','Ambra LED'],['crt','Terminale CRT']];
-  var theme = LS.get('flip_theme');
-  if (!THEMES.some(function(t){ return t[0] === theme; })) theme = 'classic';
-  var thmBtn = document.getElementById('thm');
-  function applyTheme(){
-    document.body.setAttribute('data-theme', theme);
-    var name = THEMES.filter(function(t){ return t[0] === theme; })[0][1];
-    thmBtn.setAttribute('data-tip', 'Tema: ' + name);
-    thmBtn.setAttribute('aria-label', 'Cambia tema (ora: ' + name + ')');
-    thmBtn.classList.toggle('act', theme !== 'classic');
-  }
-  thmBtn.onclick = function(e){
-    e.stopPropagation();
-    var i = THEMES.map(function(t){ return t[0]; }).indexOf(theme);
-    theme = THEMES[(i + 1) % THEMES.length][0];
-    LS.set('flip_theme', theme); applyTheme();
-  };
-  applyTheme();
 
   function pick(){
     var c = [sp, yt, pe].filter(function(x){ return x.on; });
