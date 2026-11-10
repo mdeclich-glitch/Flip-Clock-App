@@ -298,6 +298,9 @@ body.ui .cpal.open{pointer-events:auto}
 /* --- Finestra di sveglia / timer scaduto --- */
 #ringDlg{text-align:center;width:min(92vw,360px)}
 #ringClock{--h:88px;--w:calc(var(--h)*1.145);display:inline-flex;flex-direction:row;margin:4px 0 16px}
+/* cornice simmetrica: su un orologio così piccolo l'ombra verso il basso mangiava il bordo inferiore */
+#ringClock{box-shadow:inset 0 1px 0 var(--case-hi),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+#ringClock .card{box-shadow:0 0 0 1px #050505,0 0 3px rgba(0,0,0,.6)}
 #ringDlg h2{font-size:18px;font-weight:600;color:#ece8dd;margin-bottom:4px}
 #ringDlg h2:empty{display:none}
 #ringDlg p{font-size:15px;color:#bdb9ae;margin-bottom:6px}
