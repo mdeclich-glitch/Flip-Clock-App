@@ -1085,6 +1085,8 @@ body.ui .cpal.open{pointer-events:auto}
     e.stopPropagation();
     var active = pick();
     if (!active) return;
+    /* a schermo intero lascia passare Spotify/Pear davanti all'orologio */
+    if (active === sp || active === pe) { try { ipcRenderer.send('music-pass'); } catch(err){} }
     if (active === sp) {
       window.location.href = active.uri || 'spotify:';
     } else if (active === pe) {

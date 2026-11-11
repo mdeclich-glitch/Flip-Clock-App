@@ -2,12 +2,14 @@ const { app, BrowserWindow, dialog, ipcMain, screen, shell, net } = require('ele
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const pkg = require('./package.json');
 const { autoUpdater } = require('electron-updater');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html/screensaver.html non funzionino più: in quel caso serve rifare npm run dist. */
-const SHELL_API = 6; // 6: mini ridimensionabile + click-through fisso (nuovi canali IPC mini-resize, mini-hot, mini-near)
+const SHELL_API = 7; // 7: eccezione schermo intero per Spotify/Pear (nuovo canale IPC music-pass)
+                     // 6: mini ridimensionabile + click-through fisso (nuovi canali IPC mini-resize, mini-hot, mini-near)
 
 /* Modalità di avvio: app normale, screensaver (/s o --screensaver) oppure anteprima (/p) */
 const argv = process.argv.map(s => s.toLowerCase());
@@ -20,6 +22,9 @@ let mainWindow;
 let isForceClosing = false;
 let miniWindow = null; // mini orologio sempre in primo piano
 let locked = false; // vero quando lo schermo intero protetto è attivo
+let musicPass = false; // vero mentre l'orologio lascia passare Spotify/Pear davanti a sé
+let musicPassTimer = null;
+const MUSIC_FALLBACK_MS = 3 * 60 * 1000; // piano B: se il controllo della finestra attiva non parte, l'orologio torna davanti dopo questo tempo
 let lastMiniState = []; // timer e pomodoro correnti, pubblicati dalla finestra principale
 let miniTarget = { mode: 'clock' }; // cosa mostra il mini: { mode: 'clock' } oppure { mode: 'timer', id }
 let updateReady = null; // { version, needsInstall } quando c'è un aggiornamento pronto
@@ -167,6 +172,7 @@ function createWindow() {
   // Win+D, Win+M...) la riporta subito davanti.
   const keepFront = () => {
     if (!locked || !mainWindow || mainWindow.isDestroyed()) return;
+    endMusicPass();
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.setKiosk(true);
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
@@ -176,6 +182,8 @@ function createWindow() {
   // Se riapri l'app dalla barra delle applicazioni, il mini orologio si chiude
   mainWindow.on('restore', () => { if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close(); });
   mainWindow.on('closed', () => { if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close(); });
+  // Tornando sull'orologio (Alt+Tab, barra delle applicazioni...) il blocco davanti a tutto si ripristina
+  mainWindow.on('focus', () => { if (musicPass) endMusicPass(); });
   mainWindow.on('minimize', () => setTimeout(keepFront, 50));
   mainWindow.on('hide', () => setTimeout(keepFront, 50));
   // Facoltativo (più rigido, blocca anche Alt+Tab): decommenta la riga sotto
@@ -304,7 +312,110 @@ ipcMain.on('force-quit', () => {
   app.quit();
 });
 
+/* ---------- Eccezione per Spotify / Pear Desktop ----------
+   A schermo intero l'orologio sta davanti a tutto. Cliccando il player di Spotify o Pear, l'orologio
+   smette di stare "sempre in primo piano" (resta comunque a schermo intero) e la musica gli passa davanti.
+   Mentre l'eccezione è attiva un piccolo processo PowerShell legge quale app è in primo piano:
+   se per circa 1,5 secondi non è né Spotify né Pear né l'orologio, il blocco riprende subito.
+   Il blocco riprende anche quando:
+   - l'orologio riprende il focus (Alt+Tab, clic sulla barra delle applicazioni...),
+   - scatta una sveglia/timer, o l'orologio viene minimizzato/nascosto,
+   - il controllo non riesce a partire: in quel caso, dopo MUSIC_FALLBACK_MS (piano B). */
+const exeName = (p) => path.basename(String(p)).replace(/\.exe$/i, '').toLowerCase();
+function musicProcNames() {
+  const names = new Set(['spotify', 'youtube music', 'pear desktop', 'pear', exeName(process.execPath)]);
+  try { pearCandidates().forEach(p => names.add(exeName(p))); } catch (e) {}
+  return names;
+}
+/* PowerShell: ogni 0,5 s scrive il nome del processo della finestra in primo piano */
+const FG_SCRIPT = [
+  'Add-Type @"',
+  'using System; using System.Runtime.InteropServices;',
+  'public class FG {',
+  '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+  '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);',
+  '}',
+  '"@',
+  'while ($true) {',
+  '  $n = ""',
+  '  try { $p = [uint32]0; [void][FG]::GetWindowThreadProcessId([FG]::GetForegroundWindow(), [ref]$p); $n = (Get-Process -Id $p -ErrorAction Stop).ProcessName } catch {}',
+  '  [Console]::Out.WriteLine($n); [Console]::Out.Flush()',
+  '  Start-Sleep -Milliseconds 500',
+  '}'
+].join('\n');
+
+let fgProc = null, fgBad = 0, fgGotData = false, fgCheckTimer = null;
+
+function stopFgWatcher() {
+  clearTimeout(fgCheckTimer); fgCheckTimer = null;
+  if (fgProc) { const p = fgProc; fgProc = null; try { p.kill(); } catch (e) {} }
+}
+function resetMusicPass() { // azzera lo stato senza toccare la finestra
+  musicPass = false;
+  clearTimeout(musicPassTimer); musicPassTimer = null;
+  stopFgWatcher();
+}
+function endMusicPass() {
+  const was = musicPass;
+  resetMusicPass();
+  if (was && locked && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  }
+}
+function relockFromMusic() { // l'orologio torna davanti
+  endMusicPass();
+  if (locked && mainWindow && !mainWindow.isDestroyed()) { mainWindow.moveTop(); mainWindow.focus(); }
+}
+function startMusicFallback() {
+  clearTimeout(musicPassTimer);
+  musicPassTimer = setTimeout(() => { if (musicPass) relockFromMusic(); }, MUSIC_FALLBACK_MS);
+}
+function startFgWatcher() {
+  if (fgProc) return;
+  if (process.platform !== 'win32') { startMusicFallback(); return; }
+  clearTimeout(musicPassTimer); musicPassTimer = null;
+  fgBad = 0; fgGotData = false;
+  const allowed = musicProcNames();
+  let buf = '';
+  try {
+    const b64 = Buffer.from(FG_SCRIPT, 'utf16le').toString('base64');
+    const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', b64],
+      { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    fgProc = p;
+    p.stdout.setEncoding('utf8');
+    p.stdout.on('data', (chunk) => {
+      fgGotData = true;
+      buf += chunk;
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const name = buf.slice(0, i).trim().toLowerCase();
+        buf = buf.slice(i + 1);
+        if (!musicPass || fgProc !== p) return;
+        if (!name) continue;                        // nessuna finestra attiva (transizione): si ignora
+        if (allowed.has(name)) { fgBad = 0; continue; }
+        if (++fgBad >= 3) { relockFromMusic(); return; } // ~1,5 s su un'altra app (non scatta con un Alt+Tab veloce)
+      }
+    });
+    const gone = () => { if (fgProc === p) { fgProc = null; if (musicPass) startMusicFallback(); } };
+    p.on('error', gone);
+    p.on('exit', gone);
+    // se dopo 10 s non è arrivato nulla, il controllo non funziona: piano B
+    fgCheckTimer = setTimeout(() => {
+      if (fgProc === p && !fgGotData) { stopFgWatcher(); if (musicPass) startMusicFallback(); }
+    }, 10000);
+  } catch (e) { fgProc = null; startMusicFallback(); }
+}
+
+ipcMain.on('music-pass', () => {
+  if (!locked || !mainWindow || mainWindow.isDestroyed()) return;
+  musicPass = true;
+  fgBad = 0;
+  mainWindow.setAlwaysOnTop(false);
+  startFgWatcher();
+});
+
 ipcMain.on('set-fullscreen', (event, makeFullscreen) => {
+  resetMusicPass();
   locked = !!makeFullscreen;
   mainWindow.setKiosk(locked);
   mainWindow.setAlwaysOnTop(locked, 'screen-saver');
@@ -325,6 +436,7 @@ ipcMain.on('mini-cmd', (e, c) => {
 /* Timer o sveglia in corso: porta l'orologio davanti (chiudendo il mini, se aperto) */
 ipcMain.on('ring-alert', () => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  resetMusicPass(); // una sveglia ha sempre la precedenza
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
@@ -403,6 +515,8 @@ app.whenReady().then(() => {
     }
   });
 });
+
+app.on('will-quit', stopFgWatcher);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
