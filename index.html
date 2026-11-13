@@ -307,6 +307,15 @@ body.ui .cpal.open{pointer-events:auto}
 #ringDlg .more{font-size:12px;color:#8a8a8a;min-height:1.2em;margin-bottom:14px}
 #ringDlg .row{justify-content:center}
 #ringDlg .row button{padding:12px 22px;border-radius:12px;font-weight:600}
+/* Overlay "guarda lontano" (20-20-20): stesso aspetto della finestra di squillo */
+#eyeDlg{text-align:center;width:min(92vw,360px)}
+#eyeClock{--h:88px;--w:calc(var(--h)*1.145);display:inline-flex;flex-direction:row;margin:4px 0 16px;box-shadow:inset 0 1px 0 var(--case-hi),0 calc(var(--h)*.05) calc(var(--h)*.12) rgba(0,0,0,.9)}
+#eyeClock .card{box-shadow:0 0 0 1px #050505,0 0 3px rgba(0,0,0,.6)}
+#eyeDlg h2{font-size:18px;font-weight:600;color:#ece8dd;margin-bottom:4px}
+#eyeDlg p{font-size:15px;color:#bdb9ae;margin-bottom:14px}
+#eyeDlg .row{justify-content:center}
+#eyeDlg .row button{padding:12px 22px;border-radius:12px;font-weight:600;background:#2a2a2a;color:#ece8dd;border:0}
+#eyeDlg .row button:hover{background:#3a3a3a}
 #ringStop{background:#ece8dd;color:#111;border:0}
 #ringStop:hover{background:#fff}
 </style>
@@ -364,6 +373,7 @@ body.ui .cpal.open{pointer-events:auto}
   <nav class="rail" id="rail" aria-label="Comandi">
     <button class="rb" id="fs" data-tip="Schermo intero" aria-label="Schermo intero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v-2a2 2 0 0 1 2 -2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2 -2v-2"/></svg></button>
     <button class="rb" id="pomo" data-tip="Pomodoro" aria-label="Pomodoro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7h11"/><path d="M6.5 17h11"/><path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z"/><path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z"/></svg></button>
+    <button class="rb" id="eye" data-tip="20-20-20" aria-label="Regola 20-20-20"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/></svg></button>
     <button class="rb" id="fmt"></button>
     <button class="rb" id="theme" data-tip="Tema cassa" aria-label="Tema cassa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25"/><path d="M8.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M16.5 10.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg></button>
     <button class="rb" id="clk" data-tip="Timer e sveglie" aria-label="Timer e sveglie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M12 10v3l2 2"/><path d="M7 4l-2.75 2"/><path d="M17 4l2.75 2"/></svg></button>
@@ -434,6 +444,13 @@ body.ui .cpal.open{pointer-events:auto}
     <button id="ringSnooze">Posticipa 5 min</button>
     <button id="ringStop" autofocus>Stop</button>
   </div>
+</dialog>
+
+<dialog id="eyeDlg" aria-live="assertive">
+  <div class="clock" id="eyeClock"><div class="card" id="em"></div><div class="card" id="es"></div></div>
+  <h2>Guarda lontano</h2>
+  <p>Fissa qualcosa a circa 6 metri</p>
+  <div class="row"><button id="eyeSkip" tabindex="-1">Salta</button></div>
 </dialog>
 
 <dialog id="quitOverlay">
@@ -604,13 +621,20 @@ body.ui .cpal.open{pointer-events:auto}
   applyCase();
 
   /* Pomodoro */
-  var modes = [
+  var POMO_MODES = [
     {k:'FOCUS', s:25*60, n:'Focus 25 min', t:'Focus 25'},
     {k:'PAUSA', s:5*60, n:'Pausa 5 min', t:'Pausa 5'},
     {k:'PAUSA LUNGA', s:15*60, n:'Pausa lunga 15 min', t:'Lunga 15'}
   ];
+  /* Regola 20-20-20: ogni 20 min di schermo, 20 secondi guardando a 6 metri; dopo 3 blocchi (un'ora) pausa di 5 minuti */
+  var EYE_MODES = [
+    {k:'LAVORO', s:20*60, n:'Lavoro 20 min', t:'Lavoro 20'},
+    {k:'LONTANO', s:20, n:'Guarda lontano 20 sec', t:'Lontano 20s'},
+    {k:'PAUSA', s:5*60, n:'Pausa 5 min', t:'Pausa 5'}
+  ];
+  var kind = 'pomo', modes = POMO_MODES;
   var mi = 0, left = modes[0].s, running = false, endAt = 0, actx = null;
-  var done = 0, CYCLE = 4; /* sessioni di focus completate nel ciclo / sessioni per ciclo */
+  var done = 0, CYCLE = 4; /* con 20-20-20: CYCLE = 3 */  /* sessioni di focus completate nel ciclo / sessioni per ciclo */
   var pm = new Card(document.getElementById('pm'));
   var ps = new Card(document.getElementById('ps'));
   var plabel = document.getElementById('plabel');
@@ -619,6 +643,17 @@ body.ui .cpal.open{pointer-events:auto}
   var ALARM_VOL = 0.9; /* 0-1: volume dell'allarme */
   var G_PLAY = 'M8 5v14l11-7z', G_PAUSE = 'M6 5h4v14H6zM14 5h4v14h-4z';
   var ptimer = document.getElementById('timer');
+  var eyeDlg = document.getElementById('eyeDlg'), eyeOpenAt = 0;
+  var em = new Card(document.getElementById('em')), es = new Card(document.getElementById('es'));
+  function eyeShow(){
+    em.set('00'); es.set(pad(Math.max(0, Math.ceil(left))));
+    if (!eyeDlg.open){ eyeOpenAt = Date.now(); eyeDlg.showModal(); }
+    try { ipcRenderer.send('ring-alert'); } catch(e){} /* porta l'orologio davanti */
+  }
+  document.getElementById('eyeSkip').onclick = function(){
+    if (Date.now() - eyeOpenAt < 1500) return; /* evita un salto involontario mentre stai scrivendo */
+    stopAlarm(); setMode(0); startTimer();
+  };
   function draw(){
     var s = Math.max(0, Math.ceil(left));
     pm.set(pad(Math.floor(s / 60))); ps.set(pad(s % 60));
@@ -627,12 +662,36 @@ body.ui .cpal.open{pointer-events:auto}
     pstart.setAttribute('aria-label', running ? 'Ferma timer' : (left < modes[mi].s ? 'Riprendi timer' : 'Avvia timer'));
     for (var k = 0; k < pseg.children.length; k++) pseg.children[k].setAttribute('aria-pressed', String(k === mi));
     ptimer.classList.toggle('on', running);
+    if (eyeDlg.open){
+      if (kind !== 'eye' || mi !== 1) eyeDlg.close();
+      else es.set(pad(s));
+    }
   }
   function setMode(i){ mi = i; left = modes[i].s; running = false; draw(); }
-  function pomoLabel(){ return mi === 0 ? 'FOCUS ' + Math.min(done + 1, CYCLE) + '/' + CYCLE : modes[mi].k; }
+  function pomoLabel(){ return mi === 0 ? modes[0].k + ' ' + Math.min(done + 1, CYCLE) + '/' + CYCLE : modes[mi].k; }
   /* Fine di una fase: carica la successiva (ferma) e suona. Invio = parte la fase successiva.
      Ciclo: focus, pausa, focus, pausa, focus, pausa, focus, pausa lunga, fine. */
+  function eyePhaseEnd(){
+    var ended = mi;
+    if (ended === 0){
+      done++;
+      if (done >= CYCLE){ /* un'ora di schermo: pausa di 5 minuti, serve un tuo OK per partire */
+        setMode(2);
+        ringStart({kind: 'pomo', title: 'Un\u2019ora di schermo', label: 'Pausa di 5 minuti: alzati e muoviti',
+                   stopLabel: 'Avvia pausa', onStop: startTimer});
+      } else { /* promemoria leggero: i 20 secondi partono da soli */
+        setMode(1); startTimer(); beepOnce(); wake(); eyeShow();
+      }
+    } else if (ended === 1){ /* finiti i 20 secondi: si riparte da soli */
+      setMode(0); startTimer(); beepOnce(); wake();
+    } else {
+      done = 0; setMode(0);
+      ringStart({kind: 'pomo', title: 'Pausa finita', label: 'Prossima: ' + modes[0].n,
+                 stopLabel: 'Avvia lavoro', onStop: startTimer});
+    }
+  }
   function pomoPhaseEnd(){
+    if (kind === 'eye') return eyePhaseEnd();
     var ended = mi, next, title, btn;
     if (ended === 0){
       done++;
@@ -681,12 +740,21 @@ body.ui .cpal.open{pointer-events:auto}
     if (left <= 0){ pomoPhaseEnd(); showUi(); return; }
     draw();
   }, 250);
-  modes.forEach(function(m, i){
-    var b = document.createElement('button');
-    b.textContent = m.t; b.title = m.n;
-    b.onclick = function(e){ e.stopPropagation(); stopAlarm(); setMode(i); };
-    pseg.appendChild(b);
-  });
+  function buildSeg(){
+    pseg.innerHTML = '';
+    modes.forEach(function(m, i){
+      var b = document.createElement('button');
+      b.textContent = m.t; b.title = m.n;
+      b.onclick = function(e){ e.stopPropagation(); stopAlarm(); setMode(i); };
+      pseg.appendChild(b);
+    });
+  }
+  function setKind(k){
+    kind = k; modes = k === 'eye' ? EYE_MODES : POMO_MODES; CYCLE = k === 'eye' ? 3 : 4;
+    ptimer.setAttribute('aria-label', k === 'eye' ? 'Timer 20-20-20' : 'Timer pomodoro');
+    buildSeg();
+  }
+  buildSeg();
   function startTimer(){
     stopAlarm();
     try {
@@ -702,16 +770,20 @@ body.ui .cpal.open{pointer-events:auto}
     else startTimer();
   };
   /* Il timer compare solo quando lo attivi e sparisce quando lo chiudi */
-  var wrapper = document.getElementById('wrapper'), pomoBtn = document.getElementById('pomo');
-  pomoBtn.onclick = function(e){
+  var wrapper = document.getElementById('wrapper'), pomoBtn = document.getElementById('pomo'), eyeBtn = document.getElementById('eye');
+  function openKind(k, e){
     e.stopPropagation();
-    if (wrapper.classList.contains('pomo')){ document.getElementById('pclose').onclick(e); return; }
-    wrapper.classList.add('pomo'); pomoBtn.classList.add('act');
+    if (wrapper.classList.contains('pomo') && kind === k){ document.getElementById('pclose').onclick(e); return; }
+    stopAlarm(); setKind(k);
+    wrapper.classList.add('pomo');
+    pomoBtn.classList.toggle('act', k === 'pomo'); eyeBtn.classList.toggle('act', k === 'eye');
     done = 0; setMode(0); startTimer();
-  };
+  }
+  pomoBtn.onclick = function(e){ openKind('pomo', e); };
+  eyeBtn.onclick = function(e){ openKind('eye', e); };
   document.getElementById('pclose').onclick = function(e){
     e.stopPropagation(); stopAlarm(); done = 0; setMode(0);
-    wrapper.classList.remove('pomo'); pomoBtn.classList.remove('act');
+    wrapper.classList.remove('pomo'); pomoBtn.classList.remove('act'); eyeBtn.classList.remove('act');
   };
   document.getElementById('preset').onclick = function(e){ e.stopPropagation(); stopAlarm(); setMode(mi); };
   draw();
@@ -758,7 +830,7 @@ body.ui .cpal.open{pointer-events:auto}
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     if (e.key === 'f' || e.key === 'F') {
-      if (lockDlg.open || dlg.open || panel.open || ringDlg.open) return;
+      if (lockDlg.open || dlg.open || panel.open || ringDlg.open || eyeDlg.open) return;
       e.preventDefault();
       toggleFs();
     }
