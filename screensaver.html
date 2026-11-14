@@ -245,9 +245,17 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
   const { ipcRenderer } = require('electron');
 
   var q = new URLSearchParams(location.search);
-  document.documentElement.setAttribute('data-case', q.get('case') || 'dark'); // tema della cassa scelto nell'app
+  /* Tema della cassa: lo screensaver ignora quello scelto nell'app. Una cassa chiara (alu, white, orange...)
+     è una grande area luminosa, molto peggiore per un OLED delle cifre. Valori sensati: 'dark' (default) o 'navy'. */
+  var SAVER_CASE = 'dark';
+  document.documentElement.setAttribute('data-case', SAVER_CASE);
   var BLANK = q.get('blank') === '1';          // vero sui monitor secondari
   var h24 = q.get('h24') !== '0', tz;          // tz non impostato = fuso del sistema
+
+  /* Attenuazione anti burn-in: luminosità complessiva dell'orologio (1 = piena, 0.65 = 65%).
+     Sul nero equivale a ridurre la luminosità; l'usura OLED cala più che linearmente (stima, non misura). */
+  var DIM = 0.65;
+  document.getElementById('stage').style.opacity = DIM;
 
   /* Uscita: ignora gli input nei primi 800 ms (all'avvio ne arrivano di spuri) */
   var ARM = Date.now() + 800, initPos = null;
@@ -263,10 +271,11 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
   /* Monitor secondari: solo nero, nessun orologio */
   if (BLANK) { document.getElementById('wrapper').style.display = 'none'; return; }
 
-  /* Avviato dall'app (non dallo screensaver di Windows): dopo BLACK_MIN minuti lo schermo diventa nero,
-     perché su OLED il nero non consuma. Metti 0 per tenere sempre l'orologio. */
-  var EMBEDDED = q.get('embedded') === '1', BLACK_MIN = 30, blackened = false;
-  if (EMBEDDED && BLACK_MIN > 0) setTimeout(function () {
+  /* Dopo BLACK_MIN minuti lo schermo diventa nero, perché su OLED il nero non consuma. Vale sia quando
+     lo avvia l'app sia come screensaver di Windows (/s), che da solo non ha limiti: Windows spegne lo
+     schermo solo con il suo timer. Metti 0 per tenere sempre l'orologio. */
+  var BLACK_MIN = 30, blackened = false;
+  if (BLACK_MIN > 0) setTimeout(function () {
     blackened = true; document.getElementById('wrapper').style.display = 'none';
   }, BLACK_MIN * 60000);
 
