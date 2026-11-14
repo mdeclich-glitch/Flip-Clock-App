@@ -71,7 +71,8 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
   border-radius: calc(var(--h) * .075);
   background: var(--case-bg);
   box-shadow: inset 0 1px 0 var(--case-hi), inset 0 -1px 0 rgba(0,0,0,.8), 0 calc(var(--h) * .05) calc(var(--h) * .12) rgba(0,0,0,.9);
-  /* RIMOSSO il margin-right negativo: questo causava il taglio a destra su alcuni monitor! */
+  /* Niente margin-right negativo: la centratura sui cartellini Ore/Minuti (come in index.html) la fa
+     applyShift() misurando gli spazi reali, così l'orologio non può mai essere tagliato a destra. */
   margin-right: 0;
   flex-shrink: 0;
 }
@@ -374,33 +375,52 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
   }
 
   // --- Pixel Shift anti burn-in per OLED ---
-  /* L'orologio si sposta di pochi pixel a ogni cambio minuto (il flip dei cartellini nasconde il passo).
+  /* All'avvio l'orologio è centrato sui cartellini Ore/Minuti (come in index.html: il rullo dei secondi
+     sporge a destra) e da lì si sposta di pochi pixel a ogni cambio minuto (il flip nasconde il passo).
      - Onda triangolare: l'orologio passa lo stesso tempo in ogni posizione, senza accumuli agli estremi.
-     - Periodi fissi e legati all'ora di sistema: un riavvio non riparte dalla stessa traiettoria e un
-       cambio di risoluzione non fa saltare l'orologio. In verticale il periodo è moltiplicato per il rapporto aureo.
-     - L'ampiezza non supera mai lo spazio libero attorno all'orologio: non può uscire dallo schermo. */
-  var SHIFT_PCT = 4.5;      /* ampiezza orizzontale massima, in % del lato corto della finestra (0 = spento) */
-  var SHIFT_PERIOD = 4500;  /* secondi per un'escursione completa in orizzontale (75 min) */
+     - La fase di partenza è sullo zero dell'onda (= centro); il verso iniziale è casuale per ogni asse,
+       così le sessioni successive non ripercorrono sempre la stessa traiettoria.
+     - In verticale il periodo è moltiplicato per il rapporto aureo.
+     - L'ampiezza è limitata dallo spazio libero MISURATO attorno all'orologio (compreso il rullo a destra):
+       non può uscire dallo schermo, nemmeno su monitor con proporzioni insolite. */
+  var SHIFT_PCT = 6.5;      /* ampiezza orizzontale massima, in % del lato corto della finestra (0 = spento) */
+  var SHIFT_PERIOD = 1800;  /* secondi per un'escursione completa in orizzontale (30 min = una sessione) */
   var SHIFT_SAFE = 12;      /* spazio minimo (px) che resta sempre tra orologio e bordo dello schermo */
   var PHI = 1.6180339887;
   var stage = document.getElementById('stage'), clockEl = document.querySelector('.clock');
-  var lastShift = '', lastShiftMin = -1;
-  function tri(t, T) { var p = (t / T) % 1; return 4 * Math.abs(p - .5) - 1; } /* -1..1 */
+  var hEl = document.getElementById('h'), mEl = document.getElementById('m');
+  var START = Date.now();
+  var PH_X = Math.random() < .5 ? .25 : .75, PH_Y = Math.random() < .5 ? .25 : .75; /* tri() = 0 in entrambe */
+  var curX = 0, curY = 0, lastShift = '', lastShiftMin = -1;
+  function tri(p) { p = ((p % 1) + 1) % 1; return 4 * Math.abs(p - .5) - 1; } /* -1..1, zero a p = .25 e .75 */
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function applyShift() {
     var min = Math.floor(Date.now() / 60000);
     if (min === lastShiftMin) return;            /* un solo spostamento per minuto */
     lastShiftMin = min;
-    if (!SHIFT_PCT) return;
-    var A = Math.min(innerWidth, innerHeight) * SHIFT_PCT / 100;
-    var Ax = Math.max(0, Math.min(Math.round(A), Math.floor((innerWidth - clockEl.offsetWidth) / 2) - SHIFT_SAFE));
-    var Ay = Math.max(0, Math.min(Math.round(A * .75), Math.floor((innerHeight - clockEl.offsetHeight) / 2) - SHIFT_SAFE));
-    var t = Date.now() / 1000, d = window.devicePixelRatio || 1;
+    var d = window.devicePixelRatio || 1;
+    /* posizione "a riposo" dell'orologio, senza lo spostamento corrente */
+    var rc = clockEl.getBoundingClientRect(), rh = hEl.getBoundingClientRect(), rm = mEl.getBoundingClientRect();
+    var baseL = rc.left - curX, baseR = rc.right - curX, baseT = rc.top - curY, baseB = rc.bottom - curY;
+    /* centro: i cartellini Ore/Minuti al centro dello schermo (poi limitato perché tutto resti visibile) */
+    var minX = SHIFT_SAFE - baseL, maxX = innerWidth - SHIFT_SAFE - baseR;
+    var minY = SHIFT_SAFE - baseT, maxY = innerHeight - SHIFT_SAFE - baseB;
+    if (minX > maxX) minX = maxX = (minX + maxX) / 2;  /* non c'è spazio: resta centrato sull'orologio intero */
+    if (minY > maxY) minY = maxY = (minY + maxY) / 2;
+    var cx = clamp(innerWidth / 2 - ((rh.left + rm.right) / 2 - curX), minX, maxX);
+    var cy = clamp(0, minY, maxY);
+    var A = SHIFT_PCT ? Math.min(innerWidth, innerHeight) * SHIFT_PCT / 100 : 0;
+    var Ax = Math.max(0, Math.min(A, cx - minX, maxX - cx));
+    var Ay = Math.max(0, Math.min(A * .75, cy - minY, maxY - cy));
+    var t = (Date.now() - START) / 1000;
     /* arrotonda ai pixel fisici (non a quelli CSS): con scala 150% le cifre restano nitide */
-    var x = Math.round(Ax * tri(t, SHIFT_PERIOD) * d) / d;
-    var y = Math.round(Ay * tri(t, SHIFT_PERIOD * PHI) * d) / d;
+    var x = Math.round((cx + Ax * tri(PH_X + t / SHIFT_PERIOD)) * d) / d;
+    var y = Math.round((cy + Ay * tri(PH_Y + t / (SHIFT_PERIOD * PHI))) * d) / d;
     var v = 'translate(' + x + 'px,' + y + 'px)';
-    if (v !== lastShift) { lastShift = v; stage.style.transform = v; }
+    if (v !== lastShift) { lastShift = v; curX = x; curY = y; stage.style.transform = v; }
   }
+  /* se cambia la risoluzione/scala, ricalcola subito (l'orologio non deve restare fuori centro) */
+  window.addEventListener('resize', function () { lastShiftMin = -1; try { applyShift(); } catch (e) { console.error(e); } });
 
   // Loop dei secondi: aggiorna rullo, data e cartellini nello stesso istante.
   // Il try/catch evita che un errore fermi il ciclo.

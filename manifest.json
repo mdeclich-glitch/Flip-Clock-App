@@ -1,10 +1,10 @@
 {
-  "version": "1.12.1",
+  "version": "1.12.2",
   "shellApi": 9,
   "shellHash": "4523b188e6d84a871fea96e3fe16560da4874ce73ee4fe39e47528a70295ac6e",
   "files": {
     "index.html": "96c7e3bb7303b3ed99605692a16c2123882e323f092b7248dbe8013ae03fdbcf",
     "mini.html": "06b9fdbd7a9b28f9f67d54345b02b95878d04bc3a16b0508a96bba87f7e188c0",
-    "screensaver.html": "ed2493fd69dc461d1373827e0338d383935a50d4b06095d74b60f900c0fb3325"
+    "screensaver.html": "67711d223eefc74849648ec419cf0190d9bd9f9bba64eb2bb1ed35b8e01042a4"
   }
 }
