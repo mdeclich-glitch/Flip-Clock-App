@@ -204,18 +204,24 @@ function createWindow() {
   });
 }
 
-function openMini(target) {
+let miniKeepLock = false; // vero se il mini è stato aperto dalla finestra UniMiB: lo schermo intero protetto resta com'è
+function openMini(target, opts) {
+  const keepLock = !!(opts && opts.keepLock);
   miniTarget = target && target.mode === 'timer' && target.id ? { mode: 'timer', id: String(target.id) } : { mode: 'clock' };
   if (miniWindow && !miniWindow.isDestroyed()) {
     miniWindow.webContents.send('mini-target', miniTarget); // c'è già un mini: cambia solo ciò che mostra
     miniWindow.show();
-    if (mainWindow && !mainWindow.isMinimized()) mainWindow.minimize();
+    if (!miniKeepLock && mainWindow && !mainWindow.isMinimized()) mainWindow.minimize();
+    if (miniKeepLock) raiseMini();
     return;
   }
-  // il blocco dello schermo intero non vale in modalità mini
-  locked = false;
-  mainWindow.setKiosk(false);
-  mainWindow.setAlwaysOnTop(false);
+  miniKeepLock = keepLock;
+  // il blocco dello schermo intero non vale in modalità mini (tranne se il mini è aperto da UniMiB)
+  if (!keepLock) {
+    locked = false;
+    mainWindow.setKiosk(false);
+    mainWindow.setAlwaysOnTop(false);
+  }
 
   const s0 = readSettings();
   const w = Math.min(MINI_MAX_W, Math.max(MINI_MIN_W, Math.round(Number(s0.miniW) || 280)));
@@ -235,10 +241,14 @@ function openMini(target) {
   miniWindow.loadFile(pagePath('mini.html'));
   miniWindow.setIgnoreMouseEvents(true, { forward: true }); // click-through fisso: i clic attraversano il mini
   miniNearTimer = setInterval(pollMiniNear, 100);
+  miniWindow.on('show', () => refreshUniMenu());
+  miniWindow.on('hide', () => refreshUniMenu());
   miniWindow.on('closed', () => {
-    miniWindow = null; miniNear = false; clearInterval(miniNearTimer);
+    miniWindow = null; miniNear = false; miniKeepLock = false; clearInterval(miniNearTimer);
+    refreshUniMenu();
   });
-  mainWindow.minimize();
+  refreshUniMenu();
+  if (keepLock) raiseMini(); else mainWindow.minimize();
 }
 
 /* ---------- Mini: ridimensionamento e click-through ---------- */
@@ -285,6 +295,12 @@ ipcMain.on('mini-resize', (e, req) => {
 });
 
 function closeMini() {
+  if (miniKeepLock) { // mini aperto da UniMiB: l'orologio principale non era stato toccato, si torna a UniMiB
+    miniKeepLock = false;
+    if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
+    if (uniWindow && !uniWindow.isDestroyed()) raiseUni();
+    return;
+  }
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.restore(); mainWindow.show(); mainWindow.focus();
@@ -367,12 +383,22 @@ function isUniUrl(u) {
     return h === 'unimib.it' || h.endsWith('.unimib.it') || UNI_EXTRA_HOSTS.some(d => h === d || h.endsWith('.' + d));
   } catch (e) { return false; }
 }
+let refreshUniMenu = () => {}; // ricostruisce il menu della finestra UniMiB (impostata in openUni)
+/* Il mini e la finestra UniMiB stanno entrambi al livello più alto: in quel livello vince chi è stato
+   portato davanti per ultimo, e la finestra UniMiB (che prende il focus) copriva il mini.
+   Dopo ogni suo passaggio in primo piano riporto il mini davanti, senza dargli il focus. */
+function raiseMini() {
+  if (!miniWindow || miniWindow.isDestroyed() || !miniWindow.isVisible()) return;
+  miniWindow.setAlwaysOnTop(true, 'screen-saver');
+  miniWindow.moveTop();
+}
 function raiseUni() {
   if (!uniWindow || uniWindow.isDestroyed()) return;
   if (uniWindow.isMinimized()) uniWindow.restore();
   uniWindow.show();
   if (locked) { uniWindow.setAlwaysOnTop(true, 'screen-saver'); uniWindow.moveTop(); }
   uniWindow.focus();
+  raiseMini();
 }
 function openUni() {
   if (uniWindow && !uniWindow.isDestroyed()) { raiseUni(); return; }
@@ -382,6 +408,11 @@ function openUni() {
   });
   uniWindow = w;
   const wc = w.webContents;
+  // ogni volta che la finestra UniMiB torna davanti (clic, focus, ripristino) il mini si rimette sopra
+  const keepMiniOnTop = () => { raiseMini(); setTimeout(raiseMini, 120); };
+  w.on('focus', keepMiniOnTop);
+  w.on('show', keepMiniOnTop);
+  w.on('restore', keepMiniOnTop);
   // link che si aprono in una nuova scheda: restano nella stessa finestra se sono dell'ateneo, altrimenti niente
   wc.setWindowOpenHandler(({ url }) => { if (isUniUrl(url)) wc.loadURL(url); return { action: 'deny' }; });
   const guard = (event, url) => { if (!isUniUrl(url)) event.preventDefault(); };
@@ -404,15 +435,39 @@ function openUni() {
     else if (cmd === 'browser-forward') goFwd();
   });
   // Barra con pulsanti sempre visibile in cima alla finestra (ogni voce è un pulsante)
-  w.setMenu(Menu.buildFromTemplate([
-    { label: '\u2190 Indietro', click: goBack },
-    { label: 'Avanti \u2192', click: goFwd },
-    { label: '\u27F3 Ricarica', click: () => wc.reload() },
-    { label: '\u2302 Home e-learning', click: () => wc.loadURL(UNI_HOME) }
-  ]));
-  w.setMenuBarVisibility(true);
+  const buildMenu = () => {
+    const tpl = [
+      { label: '\u2190 Indietro', click: goBack },
+      { label: 'Avanti \u2192', click: goFwd },
+      { label: '\u27F3 Ricarica', click: () => wc.reload() },
+      { label: '\u2302 Home e-learning', click: () => wc.loadURL(UNI_HOME) }
+    ];
+    // Sottomenu "Mini": sceglie cosa mostrare (orologio o uno dei timer) senza uscire dallo schermo intero
+    const esc = t => String(t).replace(/&/g, '&&');
+    const sub = [{ label: 'Orologio', click: () => openMini({ mode: 'clock' }, { keepLock: true }) }];
+    lastMiniState.forEach(it => {
+      if (!it || !it.id) return;
+      sub.push({ label: '\u23F1 ' + esc(it.label || 'Timer'), click: () => openMini({ mode: 'timer', id: it.id }, { keepLock: true }) });
+    });
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      const vis = miniWindow.isVisible();
+      sub.push({ type: 'separator' });
+      sub.push({
+        label: vis ? 'Nascondi mini' : 'Mostra mini',
+        click: () => { if (!miniWindow || miniWindow.isDestroyed()) return; if (vis) miniWindow.hide(); else { miniWindow.showInactive(); raiseMini(); } }
+      });
+      sub.push({ label: 'Chiudi mini', click: closeMini });
+    }
+    tpl.push({ label: '\u25A3 Mini', submenu: sub });
+    w.setMenu(Menu.buildFromTemplate(tpl));
+    w.setMenuBarVisibility(true);
+  };
+  refreshUniMenu = () => { if (!w.isDestroyed()) buildMenu(); };
+  buildMenu();
   w.on('closed', () => {
     uniWindow = null;
+    refreshUniMenu = () => {};
+    if (miniWindow && !miniWindow.isDestroyed() && !miniWindow.isVisible()) miniWindow.showInactive();
     if (locked && mainWindow && !mainWindow.isDestroyed()) { mainWindow.setAlwaysOnTop(true, 'screen-saver'); mainWindow.focus(); }
   });
   w.loadURL(UNI_HOME);
@@ -534,6 +589,7 @@ ipcMain.on('set-fullscreen', (event, makeFullscreen) => {
 ipcMain.on('mini-state', (e, st) => {
   lastMiniState = Array.isArray(st) ? st : [];
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.webContents.send('mini-state', lastMiniState);
+  refreshUniMenu();
 });
 ipcMain.handle('mini-get-state', () => lastMiniState);
 ipcMain.handle('mini-get-target', () => miniTarget);
