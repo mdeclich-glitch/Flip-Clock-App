@@ -33,5 +33,9 @@ const manifestData = {
   files: files
 };
 
-fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2) + '\n');
+const shellHash = crypto.createHash('sha256')
+  .update(fs.readFileSync(path.join(root, 'main.js'), 'utf8').replace(/\r\n/g, '\n')).digest('hex');
+
+fs.writeFileSync(manifestPath, JSON.stringify({ version: pkg.version, shellApi, shellHash, files }, null, 2) + '\n');
 console.log(`✓ manifest.json generato con successo: versione ${pkg.version}, shellApi ${shellApi}`);
+

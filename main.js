@@ -8,7 +8,8 @@ const { autoUpdater } = require('electron-updater');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html/screensaver.html non funzionino più: in quel caso serve rifare npm run dist. */
-const SHELL_API = 8; // 8: finestra UniMiB (nuovo canale IPC open-uni, solo domini *.unimib.it)
+const SHELL_API = 9; // 9: screensaver parte anche con musicPass/focus bloccati (dopo 10 min) + log saver-debug.log
+                     // 8: finestra UniMiB (nuovo canale IPC open-uni, solo domini *.unimib.it)
                      // 7: eccezione schermo intero per Spotify/Pear (nuovo canale IPC music-pass)
                      // 6: mini ridimensionabile + click-through fisso (nuovi canali IPC mini-resize, mini-hot, mini-near)
 
@@ -54,6 +55,10 @@ function liveManifest() {
 function hashOf(buf) {
   return crypto.createHash('sha256').update(buf.toString('utf8').replace(/\r\n/g, '\n')).digest('hex');
 }
+/* Impronta del main.js in esecuzione (confrontata con shellHash del manifest per capire se serve un nuovo installer) */
+function myShellHash() {
+  try { return hashOf(fs.readFileSync(__filename)); } catch (e) { return null; }
+}
 function pagePath(name) {
   if (app.isPackaged) {
     const m = liveManifest();
@@ -78,6 +83,12 @@ async function checkLiveUpdate() {
     if (!r.ok) return;
     const m = await r.json();
     if (!m || typeof m.version !== 'string') return;
+
+    /* Se main.js è cambiato (impronta diversa) e c'è una versione più nuova, scarica l'installer dalla Release,
+       a prescindere da SHELL_API. Va prima del controllo sui file html: anche con le pagine già aggiornate
+       l'installer può ancora mancare. Non si ripete in loop: dopo l'installazione la versione coincide. */
+    const mine = myShellHash();
+    if (cmpVer(m.version, app.getVersion()) > 0 && ((m.shellApi || 1) > SHELL_API || (m.shellHash && mine && m.shellHash !== mine))) checkShellUpdate();
 
     let have = app.getVersion();
     const cur = liveManifest();
@@ -354,20 +365,35 @@ ipcMain.on('close-screensaver', () => {
    comunque: tipico caso, Pear/Spotify minimizzato o chiuso nella tray che lascia l'orologio senza focus
    o con musicPass bloccato. Il mini orologio e uniWindow restano invece un motivo valido per non partire. */
 const SAVER_FORCE_MS = 10 * 60 * 1000;
-let saverSkipSince = 0, saverSkipLast = 0;
+let saverSkipSince = 0, saverSkipLast = 0, saverLogLast = '', saverLogAt = 0;
+/* Diagnostica: scrive in userData/saver-debug.log perché lo screensaver non parte (una riga a ogni cambio di motivo, o ogni 60 s) */
+function saverLog(why) {
+  try {
+    const now = Date.now();
+    if (why === saverLogLast && now - saverLogAt < 60000) return;
+    saverLogLast = why; saverLogAt = now;
+    fs.appendFileSync(path.join(app.getPath('userData'), 'saver-debug.log'), new Date().toISOString() + '  ' + why + '\n');
+  } catch (e) {}
+}
 ipcMain.handle('start-saver', () => {
   if (MODE !== 'app') return false;
-  if (saverWins.length) return true;
-  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isMinimized()) return 'skip';
-  if ((miniWindow && !miniWindow.isDestroyed()) || (uniWindow && !uniWindow.isDestroyed())) return 'skip';
+  if (saverWins.length) { saverLog('gia-aperto'); return true; }
+  if (!mainWindow || mainWindow.isDestroyed()) { saverLog('SKIP finestra principale assente'); return 'skip'; }
+  if (!mainWindow.isVisible()) { saverLog('SKIP finestra principale non visibile'); return 'skip'; }
+  if (mainWindow.isMinimized()) { saverLog('SKIP finestra principale minimizzata'); return 'skip'; }
+  if (miniWindow && !miniWindow.isDestroyed()) { saverLog('SKIP mini orologio aperto'); return 'skip'; }
+  if (uniWindow && !uniWindow.isDestroyed()) { saverLog('SKIP finestra UniMiB aperta'); return 'skip'; }
   if (musicPass || !mainWindow.isFocused()) {
     const now = Date.now();
     if (now - saverSkipLast > 30000) saverSkipSince = now; // pausa nelle richieste = nuova serie di rinvii
     saverSkipLast = now;
-    if (now - saverSkipSince < SAVER_FORCE_MS) return 'skip';
+    const w = Math.round((now - saverSkipSince) / 1000);
+    if (now - saverSkipSince < SAVER_FORCE_MS) { saverLog('SKIP musicPass=' + musicPass + ' focus=' + mainWindow.isFocused() + ' da ' + w + ' s'); return 'skip'; }
+    saverLog('FORZATO dopo ' + w + ' s (musicPass=' + musicPass + ' focus=' + mainWindow.isFocused() + ')');
     endMusicPass(); // azzera musicPass (e rimette l'orologio davanti se è a schermo intero protetto)
   }
   saverSkipSince = saverSkipLast = 0;
+  saverLog('AVVIO screensaver');
   startScreensaver(true);
   return true;
 });
