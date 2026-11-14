@@ -350,11 +350,24 @@ ipcMain.on('close-screensaver', () => {
    false = non disponibile (l'orologio ripiega sullo schermo nero).
    Parte solo se l'orologio è in primo piano e in uso: con altre app davanti (musica, e-learning, mini orologio...)
    uno screensaver sopra a tutto darebbe fastidio. */
+/* Se i rinvii ('skip') per colpa di focus o passaggio musica durano più di SAVER_FORCE_MS, lo screensaver parte
+   comunque: tipico caso, Pear/Spotify minimizzato o chiuso nella tray che lascia l'orologio senza focus
+   o con musicPass bloccato. Il mini orologio e uniWindow restano invece un motivo valido per non partire. */
+const SAVER_FORCE_MS = 10 * 60 * 1000;
+let saverSkipSince = 0, saverSkipLast = 0;
 ipcMain.handle('start-saver', () => {
   if (MODE !== 'app') return false;
   if (saverWins.length) return true;
-  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isMinimized() || !mainWindow.isFocused()) return 'skip';
-  if (musicPass || (miniWindow && !miniWindow.isDestroyed()) || (uniWindow && !uniWindow.isDestroyed())) return 'skip';
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isMinimized()) return 'skip';
+  if ((miniWindow && !miniWindow.isDestroyed()) || (uniWindow && !uniWindow.isDestroyed())) return 'skip';
+  if (musicPass || !mainWindow.isFocused()) {
+    const now = Date.now();
+    if (now - saverSkipLast > 30000) saverSkipSince = now; // pausa nelle richieste = nuova serie di rinvii
+    saverSkipLast = now;
+    if (now - saverSkipSince < SAVER_FORCE_MS) return 'skip';
+    endMusicPass(); // azzera musicPass (e rimette l'orologio davanti se è a schermo intero protetto)
+  }
+  saverSkipSince = saverSkipLast = 0;
   startScreensaver(true);
   return true;
 });
