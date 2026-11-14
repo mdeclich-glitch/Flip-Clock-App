@@ -263,6 +263,13 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
   /* Monitor secondari: solo nero, nessun orologio */
   if (BLANK) { document.getElementById('wrapper').style.display = 'none'; return; }
 
+  /* Avviato dall'app (non dallo screensaver di Windows): dopo BLACK_MIN minuti lo schermo diventa nero,
+     perché su OLED il nero non consuma. Metti 0 per tenere sempre l'orologio. */
+  var EMBEDDED = q.get('embedded') === '1', BLACK_MIN = 30, blackened = false;
+  if (EMBEDDED && BLACK_MIN > 0) setTimeout(function () {
+    blackened = true; document.getElementById('wrapper').style.display = 'none';
+  }, BLACK_MIN * 60000);
+
   // Motore dei Cartellini a Scatto
   function Card(el) {
     this.el = el; this.val = null;
@@ -357,25 +364,44 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
     hc.set(h24 ? pad(hr) : String(hr)); mc.set(pad(t.m));
   }
 
-  // Loop dei secondi: aggiorna rullo, data e cartellini nello stesso istante.
-  // Il try/catch evita che un errore fermi il ciclo.
-  function secLoop() {
-    try { drumTick(); drawDate(); tick(); } catch (e) { console.error(e); }
-    setTimeout(secLoop, 1000 - Date.now() % 1000 + 5);
-  }
-  secLoop();
-
-  // --- Pixel Shift Anti-Burn-in per OLED ---
-  var SHIFT_X = 8, SHIFT_Y = 6;
-  var stage = document.getElementById('stage'), lastShift = '';
-  function pixelShift() {
-    var t = Date.now() / 1000;
-    var x = Math.round(SHIFT_X * Math.sin(2 * Math.PI * t / 1380));
-    var y = Math.round(SHIFT_Y * Math.sin(2 * Math.PI * t / 1860));
+  // --- Pixel Shift anti burn-in per OLED ---
+  /* L'orologio si sposta di pochi pixel a ogni cambio minuto (il flip dei cartellini nasconde il passo).
+     - Onda triangolare: l'orologio passa lo stesso tempo in ogni posizione, senza accumuli agli estremi.
+     - Periodi fissi e legati all'ora di sistema: un riavvio non riparte dalla stessa traiettoria e un
+       cambio di risoluzione non fa saltare l'orologio. In verticale il periodo è moltiplicato per il rapporto aureo.
+     - L'ampiezza non supera mai lo spazio libero attorno all'orologio: non può uscire dallo schermo. */
+  var SHIFT_PCT = 4.5;      /* ampiezza orizzontale massima, in % del lato corto della finestra (0 = spento) */
+  var SHIFT_PERIOD = 4500;  /* secondi per un'escursione completa in orizzontale (75 min) */
+  var SHIFT_SAFE = 12;      /* spazio minimo (px) che resta sempre tra orologio e bordo dello schermo */
+  var PHI = 1.6180339887;
+  var stage = document.getElementById('stage'), clockEl = document.querySelector('.clock');
+  var lastShift = '', lastShiftMin = -1;
+  function tri(t, T) { var p = (t / T) % 1; return 4 * Math.abs(p - .5) - 1; } /* -1..1 */
+  function applyShift() {
+    var min = Math.floor(Date.now() / 60000);
+    if (min === lastShiftMin) return;            /* un solo spostamento per minuto */
+    lastShiftMin = min;
+    if (!SHIFT_PCT) return;
+    var A = Math.min(innerWidth, innerHeight) * SHIFT_PCT / 100;
+    var Ax = Math.max(0, Math.min(Math.round(A), Math.floor((innerWidth - clockEl.offsetWidth) / 2) - SHIFT_SAFE));
+    var Ay = Math.max(0, Math.min(Math.round(A * .75), Math.floor((innerHeight - clockEl.offsetHeight) / 2) - SHIFT_SAFE));
+    var t = Date.now() / 1000, d = window.devicePixelRatio || 1;
+    /* arrotonda ai pixel fisici (non a quelli CSS): con scala 150% le cifre restano nitide */
+    var x = Math.round(Ax * tri(t, SHIFT_PERIOD) * d) / d;
+    var y = Math.round(Ay * tri(t, SHIFT_PERIOD * PHI) * d) / d;
     var v = 'translate(' + x + 'px,' + y + 'px)';
     if (v !== lastShift) { lastShift = v; stage.style.transform = v; }
   }
-  pixelShift(); setInterval(pixelShift, 5000);
+
+  // Loop dei secondi: aggiorna rullo, data e cartellini nello stesso istante.
+  // Il try/catch evita che un errore fermi il ciclo.
+  function secLoop() {
+    if (blackened) return;
+    try { drumTick(); drawDate(); tick(); } catch (e) { console.error(e); }
+    try { applyShift(); } catch (e) { console.error(e); } /* un errore qui non ferma l'orologio */
+    setTimeout(secLoop, 1000 - Date.now() % 1000 + 5);
+  }
+  secLoop();
 
 })();
 </script>

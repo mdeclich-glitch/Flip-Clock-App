@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, screen, shell, net } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, screen, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -8,7 +8,8 @@ const { autoUpdater } = require('electron-updater');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html/screensaver.html non funzionino più: in quel caso serve rifare npm run dist. */
-const SHELL_API = 7; // 7: eccezione schermo intero per Spotify/Pear (nuovo canale IPC music-pass)
+const SHELL_API = 8; // 8: finestra UniMiB (nuovo canale IPC open-uni, solo domini *.unimib.it)
+                     // 7: eccezione schermo intero per Spotify/Pear (nuovo canale IPC music-pass)
                      // 6: mini ridimensionabile + click-through fisso (nuovi canali IPC mini-resize, mini-hot, mini-near)
 
 /* Modalità di avvio: app normale, screensaver (/s o --screensaver) oppure anteprima (/p) */
@@ -181,7 +182,11 @@ function createWindow() {
   };
   // Se riapri l'app dalla barra delle applicazioni, il mini orologio si chiude
   mainWindow.on('restore', () => { if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close(); });
-  mainWindow.on('closed', () => { if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close(); });
+  mainWindow.on('closed', () => {
+    if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
+    closeSaverWindows();
+    if (uniWindow && !uniWindow.isDestroyed()) uniWindow.close();
+  });
   // Tornando sull'orologio (Alt+Tab, barra delle applicazioni...) il blocco davanti a tutto si ripristina
   mainWindow.on('focus', () => { if (musicPass) endMusicPass(); });
   mainWindow.on('minimize', () => setTimeout(keepFront, 50));
@@ -287,7 +292,8 @@ function closeMini() {
 }
 
 /* ---------- Screensaver: una finestra nera per monitor, l'orologio solo sul principale ---------- */
-function startScreensaver() {
+let saverWins = []; // finestre dello screensaver aperte dall'app (in modalità /s restano vuote)
+function startScreensaver(embedded) {
   const primary = screen.getPrimaryDisplay().id;
   const s = readSettings();
   screen.getAllDisplays().forEach(d => {
@@ -298,12 +304,44 @@ function startScreensaver() {
     });
     w.setAlwaysOnTop(true, 'screen-saver');
     w.loadFile(pagePath('screensaver.html'), {
-      query: { blank: d.id === primary ? '0' : '1', h24: s.h24 === false ? '0' : '1', case: s.flipCase || 'dark' }
+      query: { blank: d.id === primary ? '0' : '1', h24: s.h24 === false ? '0' : '1', case: s.flipCase || 'dark', embedded: embedded ? '1' : '0' }
     });
-    w.once('ready-to-show', () => w.show());
+    w.once('ready-to-show', () => {
+      w.show();
+      if (embedded && d.id === primary) w.focus(); // serve il focus perché i tasti chiudano lo screensaver
+    });
+    if (embedded) {
+      saverWins.push(w);
+      w.on('closed', () => { saverWins = saverWins.filter(x => x !== w); });
+    }
   });
 }
-ipcMain.on('close-screensaver', () => app.quit());
+function closeSaverWindows() {
+  const ws = saverWins; saverWins = [];
+  ws.forEach(w => { if (!w.isDestroyed()) w.close(); });
+}
+/* Chiusura: in modalità /s (screensaver di Windows) chiude tutto; avviato dall'app torna all'orologio */
+ipcMain.on('close-screensaver', () => {
+  if (MODE === 'saver') { app.quit(); return; }
+  closeSaverWindows();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('saver-closed');
+    if (locked) mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    mainWindow.focus();
+  }
+});
+/* Inattività nell'app: l'orologio chiede lo screensaver. Risposte: true = avviato, 'skip' = non ora (riprova),
+   false = non disponibile (l'orologio ripiega sullo schermo nero).
+   Parte solo se l'orologio è in primo piano e in uso: con altre app davanti (musica, e-learning, mini orologio...)
+   uno screensaver sopra a tutto darebbe fastidio. */
+ipcMain.handle('start-saver', () => {
+  if (MODE !== 'app') return false;
+  if (saverWins.length) return true;
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isMinimized() || !mainWindow.isFocused()) return 'skip';
+  if (musicPass || (miniWindow && !miniWindow.isDestroyed()) || (uniWindow && !uniWindow.isDestroyed())) return 'skip';
+  startScreensaver(true);
+  return true;
+});
 
 ipcMain.on('open-mini', (e, t) => openMini(t));
 ipcMain.on('mini-close', closeMini);
@@ -311,6 +349,76 @@ ipcMain.on('force-quit', () => {
   isForceClosing = true;
   app.quit();
 });
+
+/* ---------- Eccezione per i siti dell'università (*.unimib.it) ----------
+   Un'altra app non può sapere quale sito è aperto in un browser, quindi i siti dell'ateneo (e-learning...)
+   si aprono in una finestra dedicata dell'app, che può navigare SOLO su unimib.it e sui suoi sottodomini.
+   Con lo schermo intero protetto la finestra sta davanti all'orologio; chiudendola si torna all'orologio.
+   Il login resta salvato (sessione "persist:unimib"). Se l'accesso passa da un altro dominio
+   (es. un provider di identità esterno), aggiungilo a UNI_EXTRA_HOSTS. */
+const UNI_HOME = 'https://elearning.unimib.it/';
+const UNI_EXTRA_HOSTS = [];
+let uniWindow = null;
+function isUniUrl(u) {
+  try {
+    const x = new URL(u);
+    if (x.protocol !== 'https:') return false;
+    const h = x.hostname.toLowerCase();
+    return h === 'unimib.it' || h.endsWith('.unimib.it') || UNI_EXTRA_HOSTS.some(d => h === d || h.endsWith('.' + d));
+  } catch (e) { return false; }
+}
+function raiseUni() {
+  if (!uniWindow || uniWindow.isDestroyed()) return;
+  if (uniWindow.isMinimized()) uniWindow.restore();
+  uniWindow.show();
+  if (locked) { uniWindow.setAlwaysOnTop(true, 'screen-saver'); uniWindow.moveTop(); }
+  uniWindow.focus();
+}
+function openUni() {
+  if (uniWindow && !uniWindow.isDestroyed()) { raiseUni(); return; }
+  const w = new BrowserWindow({
+    width: 1280, height: 860, autoHideMenuBar: false, title: 'UniMiB',
+    webPreferences: { partition: 'persist:unimib', nodeIntegration: false, contextIsolation: true, sandbox: true }
+  });
+  uniWindow = w;
+  const wc = w.webContents;
+  // link che si aprono in una nuova scheda: restano nella stessa finestra se sono dell'ateneo, altrimenti niente
+  wc.setWindowOpenHandler(({ url }) => { if (isUniUrl(url)) wc.loadURL(url); return { action: 'deny' }; });
+  const guard = (event, url) => { if (!isUniUrl(url)) event.preventDefault(); };
+  wc.on('will-navigate', guard);
+  wc.on('will-redirect', guard);
+  // Niente barra del browser: indietro / avanti / ricarica con tastiera e tasti laterali del mouse
+  const hist = wc.navigationHistory;
+  const goBack = () => { if (hist ? hist.canGoBack() : wc.canGoBack()) { hist ? hist.goBack() : wc.goBack(); } };
+  const goFwd = () => { if (hist ? hist.canGoForward() : wc.canGoForward()) { hist ? hist.goForward() : wc.goForward(); } };
+  wc.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const k = input.key;
+    if ((input.alt && k === 'ArrowLeft') || k === 'BrowserBack') { event.preventDefault(); goBack(); }
+    else if ((input.alt && k === 'ArrowRight') || k === 'BrowserForward') { event.preventDefault(); goFwd(); }
+    else if (k === 'F5' || (input.control && (k === 'r' || k === 'R'))) { event.preventDefault(); wc.reload(); }
+    else if (input.alt && k === 'Home') { event.preventDefault(); wc.loadURL(UNI_HOME); }
+  });
+  w.on('app-command', (e, cmd) => {              // tasti laterali del mouse (Windows)
+    if (cmd === 'browser-backward') goBack();
+    else if (cmd === 'browser-forward') goFwd();
+  });
+  // Barra con pulsanti sempre visibile in cima alla finestra (ogni voce è un pulsante)
+  w.setMenu(Menu.buildFromTemplate([
+    { label: '\u2190 Indietro', click: goBack },
+    { label: 'Avanti \u2192', click: goFwd },
+    { label: '\u27F3 Ricarica', click: () => wc.reload() },
+    { label: '\u2302 Home e-learning', click: () => wc.loadURL(UNI_HOME) }
+  ]));
+  w.setMenuBarVisibility(true);
+  w.on('closed', () => {
+    uniWindow = null;
+    if (locked && mainWindow && !mainWindow.isDestroyed()) { mainWindow.setAlwaysOnTop(true, 'screen-saver'); mainWindow.focus(); }
+  });
+  w.loadURL(UNI_HOME);
+  if (locked) raiseUni();
+}
+ipcMain.on('open-uni', () => { if (mainWindow && !mainWindow.isDestroyed()) openUni(); });
 
 /* ---------- Eccezione per Spotify / Pear Desktop ----------
    A schermo intero l'orologio sta davanti a tutto. Cliccando il player di Spotify o Pear, l'orologio
@@ -437,6 +545,7 @@ ipcMain.on('mini-cmd', (e, c) => {
 ipcMain.on('ring-alert', () => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   resetMusicPass(); // una sveglia ha sempre la precedenza
+  closeSaverWindows();
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
