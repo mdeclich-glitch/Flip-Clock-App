@@ -1,6 +1,6 @@
 {
   "name": "flip-clock-app",
-  "version": "1.12.4",
+  "version": "1.12.5",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,7 +9,8 @@
     "dist": "electron-builder",
     "release": "electron-builder --publish always",
     "bump": "npm version patch --no-git-tag-version && npm run manifest",
-    "bump:minor": "npm version minor --no-git-tag-version && npm run manifest"
+    "bump:minor": "npm version minor --no-git-tag-version && npm run manifest",
+    "ship": "node tools/ship.js"
   },
   "liveUpdate": {
     "baseUrl": "https://raw.githubusercontent.com/mdeclich-glitch/Flip-Clock-App/main/"
