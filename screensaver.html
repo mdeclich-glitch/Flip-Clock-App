@@ -255,7 +255,7 @@ html[data-case="green"]{--plate:#b5d3c2;--plate-b:#eef8f2;--plate-sh:rgba(0,0,0,
 
   /* Attenuazione anti burn-in: luminosità complessiva dell'orologio (1 = piena, 0.65 = 65%).
      Sul nero equivale a ridurre la luminosità; l'usura OLED cala più che linearmente (stima, non misura). */
-  var DIM = 0.65;
+  var DIM = 0.75;
   document.getElementById('stage').style.opacity = DIM;
 
   /* Uscita: ignora gli input nei primi 800 ms (all'avvio ne arrivano di spuri) */
