@@ -335,6 +335,7 @@ function startScreensaver(embedded) {
     });
     w.once('ready-to-show', () => {
       w.show();
+      w.moveTop(); // sopra a tutto, anche a una finestra UniMiB rimasta al livello più alto
       if (embedded && d.id === primary) w.focus(); // serve il focus perché i tasti chiudano lo screensaver
     });
     if (embedded) {
@@ -363,7 +364,7 @@ ipcMain.on('close-screensaver', () => {
    uno screensaver sopra a tutto darebbe fastidio. */
 /* Se i rinvii ('skip') per colpa di focus o passaggio musica durano più di SAVER_FORCE_MS, lo screensaver parte
    comunque: tipico caso, Pear/Spotify minimizzato o chiuso nella tray che lascia l'orologio senza focus
-   o con musicPass bloccato. Il mini orologio e uniWindow restano invece un motivo valido per non partire. */
+   o con musicPass bloccato. Il mini orologio, e UniMiB solo se è in uso (col focus), restano invece un motivo valido per non partire. */
 const SAVER_FORCE_MS = 10 * 60 * 1000;
 let saverSkipSince = 0, saverSkipLast = 0, saverLogLast = '', saverLogAt = 0;
 /* Diagnostica: scrive in userData/saver-debug.log perché lo screensaver non parte (una riga a ogni cambio di motivo, o ogni 60 s) */
@@ -382,7 +383,10 @@ ipcMain.handle('start-saver', () => {
   if (!mainWindow.isVisible()) { saverLog('SKIP finestra principale non visibile'); return 'skip'; }
   if (mainWindow.isMinimized()) { saverLog('SKIP finestra principale minimizzata'); return 'skip'; }
   if (miniWindow && !miniWindow.isDestroyed()) { saverLog('SKIP mini orologio aperto'); return 'skip'; }
-  if (uniWindow && !uniWindow.isDestroyed()) { saverLog('SKIP finestra UniMiB aperta'); return 'skip'; }
+  /* UniMiB blocca lo screensaver solo se la stai usando: visibile, non minimizzata e col focus (anche per una lezione
+     in video, dove non ci sono input). Se è aperta ma in secondo piano o minimizzata, non è un motivo per non partire. */
+  const uniOpen = !!(uniWindow && !uniWindow.isDestroyed());
+  if (uniOpen && uniWindow.isVisible() && !uniWindow.isMinimized() && uniWindow.isFocused()) { saverLog('SKIP finestra UniMiB in uso (col focus)'); return 'skip'; }
   if (musicPass || !mainWindow.isFocused()) {
     const now = Date.now();
     if (now - saverSkipLast > 30000) saverSkipSince = now; // pausa nelle richieste = nuova serie di rinvii
@@ -393,7 +397,7 @@ ipcMain.handle('start-saver', () => {
     endMusicPass(); // azzera musicPass (e rimette l'orologio davanti se è a schermo intero protetto)
   }
   saverSkipSince = saverSkipLast = 0;
-  saverLog('AVVIO screensaver');
+  saverLog('AVVIO screensaver' + (uniOpen ? ' (UniMiB aperta in secondo piano)' : ''));
   startScreensaver(true);
   return true;
 });
