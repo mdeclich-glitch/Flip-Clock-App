@@ -1,5 +1,3 @@
-<div align="center">
-
 # ⏰ Flip Clock App
 
 **A retro flip clock that keeps you focused.**
@@ -9,7 +7,8 @@ Fullscreen lock, Pomodoro, 20-20-20 eye breaks, music controls and a Windows scr
 ![Built with](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron&logoColor=white)
 ![Spotify](https://img.shields.io/badge/Spotify-supported-1DB954?logo=spotify&logoColor=white)
 
-<img width="2360" height="1588" alt="Flip Clock Main Interface" src="https://github.com/user-attachments/assets/e86026ee-de65-4489-a3da-e3708f9a8b5f" />
+<img width="2878" height="1788" alt="Screenshot 2026-11-16 193356" src="https://github.com/user-attachments/assets/466ad83b-61b9-40f3-b68b-e0f7d24bb81a" />
+<div align="center">
 
 </div>
 
