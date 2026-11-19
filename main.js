@@ -254,7 +254,7 @@ function openMini(target, opts) {
   try { miniWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch (e) {}
   miniWindow.loadFile(pagePath('mini.html'));
   miniWindow.setIgnoreMouseEvents(true, { forward: true }); // click-through fisso: i clic attraversano il mini
-  miniNearTimer = setInterval(pollMiniNear, 100);
+  miniNearTimer = setInterval(pollMiniNear, 200);
   miniWindow.on('show', () => refreshUniMenu());
   miniWindow.on('hide', () => refreshUniMenu());
   miniWindow.on('closed', () => {
@@ -547,7 +547,7 @@ const FG_SCRIPT = [
   '"@',
   'while ($true) {',
   '  $n = ""',
-  '  try { $p = [uint32]0; [void][FG]::GetWindowThreadProcessId([FG]::GetForegroundWindow(), [ref]$p); $n = (Get-Process -Id $p -ErrorAction Stop).ProcessName } catch {}',
+  '  try { $p = [uint32]0; [void][FG]::GetWindowThreadProcessId([FG]::GetForegroundWindow(), [ref]$p); $n = [System.Diagnostics.Process]::GetProcessById($p).ProcessName } catch {}',
   '  [Console]::Out.WriteLine($n); [Console]::Out.Flush()',
   '  Start-Sleep -Milliseconds 500',
   '}'

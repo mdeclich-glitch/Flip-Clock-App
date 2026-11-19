@@ -598,7 +598,11 @@ body.ui .cpal.open{pointer-events:auto}
       return r;
     } catch(e){ return {h:d.getHours(), m:d.getMinutes()}; }
   }
+  /* Modalità silenziosa: schermo nero, screensaver o finestra nascosta/ridotta. Nessuno guarda l'interfaccia,
+     quindi si saltano disegni, animazioni e richieste di rete; timer e sveglie continuano a funzionare. */
+  function isQuiet(){ return !!document.hidden || !!saverOn || !!(blackout && blackout.classList.contains('show')); }
   function tick(){
+    if (isQuiet()) return;
     var t = parts(), hr = t.h;
     if (h24){ ampm.innerHTML = ''; }
     else {
@@ -784,7 +788,7 @@ body.ui .cpal.open{pointer-events:auto}
     if (!running) return;
     left = (endAt - Date.now()) / 1000;
     if (left <= 0){ pomoPhaseEnd(); showUi(); return; }
-    draw();
+    if (!isQuiet()) draw();
   }, 250);
   function buildSeg(){
     pseg.innerHTML = '';
@@ -1241,7 +1245,7 @@ body.ui .cpal.open{pointer-events:auto}
     return Math.min(Math.max(p, 0), a.dur);
   }
   function drawSeek(){
-    if (!seekEl) return;
+    if (!seekEl || isQuiet()) return;
     var a = pick(), ok = !!a && (a === sp || a === pe) && a.dur > 0 && !gnote;
     seekEl.hidden = !ok;
     if (!ok || dragging) return;
@@ -1293,10 +1297,11 @@ body.ui .cpal.open{pointer-events:auto}
   /* Collegamento automatico: se Pear è aperto e non ancora collegato, parte una sola richiesta per sessione */
   var peAuto = false;
   function autoPear(){
-    if (pe.on || peAuto) return;
+    if (pe.on || peAuto || isQuiet()) return;
+    if (appsUp && !appsUp.pear) return;                     /* Pear non è in esecuzione: inutile provare a collegarsi */
     pearReachable().then(function(up){ if (up && !pe.on && !peAuto){ peAuto = true; peConnect(); } });
   }
-  setInterval(autoPear, 5000); autoPear();
+  setInterval(autoPear, 10000); autoPear();
 
   var q = new URLSearchParams(location.search);
   if (q.get('code') && LS.get('sp_v')){
@@ -1308,11 +1313,17 @@ body.ui .cpal.open{pointer-events:auto}
     msg('Spotify: accesso annullato'); history.replaceState(null, '', location.pathname);
   }
   render(); pollSp(); pollYt(); pollPe();
-  setInterval(function(){ pollSp(); pollYt(); pollPe(); }, 5000);
+  var pollN = 0;
+  setInterval(function(){
+    if (isQuiet()) return;                                  /* schermo nero / screensaver / finestra nascosta: la musica non si vede */
+    var playing = sp.playing || yt.playing || pe.playing;
+    if (!playing && (pollN++ % 3)) return;                  /* niente in riproduzione: ogni 15 s invece che ogni 5 */
+    pollSp(); pollYt(); pollPe();
+  }, 5000);
   /* ---------- Icone di avvio Spotify / Pear: compaiono solo se l'app è chiusa ---------- */
   var dockEl = document.getElementById('dock'), sysEl = document.getElementById('sys');
   var lnSp = document.getElementById('lnsp'), lnPe = document.getElementById('lnpe');
-  var appsUp = null, appsKnown = false;
+  var appsUp = null, appsKnown = false, appsAt = 0;
   function updDock(){
     dockEl.hidden = sysEl.hidden;
   }
@@ -1328,6 +1339,7 @@ body.ui .cpal.open{pointer-events:auto}
     g('rsep').hidden = !any;
   }
   function pollApps(){
+    appsAt = Date.now();
     ipcRenderer.invoke('apps-running').then(function(r){ appsUp = r || null; appsKnown = true; drawLaunch(); })
       .catch(function(){ appsUp = null; appsKnown = true; drawLaunch(); });
   }
@@ -1343,20 +1355,24 @@ body.ui .cpal.open{pointer-events:auto}
     try { ipcRenderer.send('music-pass'); } catch(x){}
     launchPear(); afterLaunch();
   };
-  setInterval(pollApps, 5000); pollApps();
+  setInterval(function(){ if (!isQuiet()) pollApps(); }, 30000); pollApps();
+  ['mousemove', 'touchstart', 'click'].forEach(function(ev){ /* la colonna dei comandi si vede solo col mouse: controllo allora */
+    document.addEventListener(ev, function(){ if (Date.now() - appsAt > 5000 && !isQuiet()) pollApps(); }, {passive: true});
+  });
 
   /* ---------- Pillola di sistema: batteria, rete, Bluetooth. Il clic apre il pannello rapido di Windows (Win+A) ---------- */
   var sgBat = document.getElementById('sgbat'), sgWifi = document.getElementById('sgwifi'), sgBt = document.getElementById('sgbt');
   var batFill = document.getElementById('batfill'), batPct = document.getElementById('batpct'), boltEl = document.getElementById('bolt');
   var wifiSvg = document.getElementById('wifisvg');
-  var sysData = null, sysAt = 0;
+  var sysData = null, sysAt = 0, batLive = null;
   function drawSys(){
     var d = sysData;
     if (!d){ sysEl.hidden = true; updDock(); return; }
     var bat = d.bat;
     sgBat.hidden = !bat;
     if (bat){
-      var lv = Math.max(0, Math.min(100, bat.level | 0));
+      var lv = Math.max(0, Math.min(100, (batLive ? batLive.level : bat.level) | 0));
+      bat = {level: lv, plugged: bat.plugged || !!(batLive && batLive.plugged)};
       batFill.setAttribute('width', String(Math.max(0.6, 12 * lv / 100)));
       batPct.textContent = lv + '%';
       boltEl.classList.toggle('on', !!bat.plugged);
@@ -1392,7 +1408,18 @@ body.ui .cpal.open{pointer-events:auto}
     sg.onclick = function(e){ e.stopPropagation(); try { ipcRenderer.send('open-quick-settings'); } catch(x){} };
     sg.addEventListener('mouseenter', function(){ if (Date.now() - sysAt > 8000) pollSys(true); }); /* tooltip sempre fresco */
   });
-  setInterval(function(){ pollSys(false); }, 30000); pollSys(false);
+  try { /* livello e ricarica dal browser: nessun processo da avviare */
+    navigator.getBattery().then(function(b){
+      function up(){ batLive = {level: Math.round(b.level * 100), plugged: !!b.charging}; if (sysData && !isQuiet()) drawSys(); }
+      b.addEventListener('levelchange', up);
+      b.addEventListener('chargingchange', function(){
+        if (sysData && sysData.bat) sysData.bat.plugged = !!b.charging;
+        up(); pollSys(true);                                  /* ricontrollo subito con PowerShell */
+      });
+      up();
+    }).catch(function(){});
+  } catch(e){}
+  setInterval(function(){ if (!isQuiet()) pollSys(false); }, 5 * 60000); pollSys(false);
 
   /* ---------- Timer e sveglie ---------- */
   var panel = document.getElementById('panel'), ringDlg = document.getElementById('ringDlg');
@@ -1734,7 +1761,9 @@ body.ui .cpal.open{pointer-events:auto}
     if (!t) return;
     if (c.cmd === 'toggle') toggleT(t); else resetT(t);
   });
+  var taN = 0;
   function tickTA(){
+    if (isQuiet() && (taN++ & 1)) return;                    /* in silenzio basta un controllo al secondo */
     var now = Date.now(), ch = false;
     timers.slice().forEach(function(t){
       if (t.run && t.endAt <= now){
@@ -1744,8 +1773,10 @@ body.ui .cpal.open{pointer-events:auto}
     });
     if (ch){ saveT(); renderT(); }
     checkAlarms(now);
+    publishMini();                                           /* il mini deve ricevere lo stato anche a finestra ridotta */
+    if (isQuiet()) return;
     if (panel.open) updT();
-    drawCT(); renderChips(); publishMini();
+    drawCT(); renderChips();
   }
   setInterval(tickTA, 500);
   renderT(); renderA();
@@ -1767,6 +1798,7 @@ body.ui .cpal.open{pointer-events:auto}
   var SHIFT_X = 8, SHIFT_Y = 6; /* ampiezza massima in pixel: metti 0 per disattivare */
   var stage = byId('stage'), lastShift = '';
   function pixelShift(){
+    if (isQuiet()) return;
     var t = Date.now() / 1000;
     var x = Math.round(SHIFT_X * Math.sin(2 * Math.PI * t / 1380));
     var y = Math.round(SHIFT_Y * Math.sin(2 * Math.PI * t / 1860));
@@ -1779,9 +1811,18 @@ body.ui .cpal.open{pointer-events:auto}
      Se non può partire (versione vecchia dell'involucro, errore) si ripiega sullo schermo nero. */
   var IDLE_MIN = 5; /* minuti senza mouse, tastiera o tocco */
   var blackout = document.getElementById('blackout'), lastAct = Date.now(), saverOn = false, saverAsk = false;
+  /* Al risveglio: ridisegna subito tutto e riporta i dati aggiornati */
+  function resumeUi(){
+    try { tick(); draw(); drawSeek(); pixelShift(); drawCT(); renderChips(); if (panel.open) updT(); } catch(e){}
+    pollSp(); pollYt(); pollPe();
+    if (Date.now() - appsAt > 5000) pollApps();
+    if (Date.now() - sysAt > 2 * 60000) pollSys(false);
+  }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && !isQuiet()) resumeUi(); });
   function wake(){
-    var was = saverOn;
+    var was = saverOn, wasQuiet = isQuiet();
     lastAct = Date.now(); saverOn = false; blackout.classList.remove('show');
+    if (wasQuiet && !isQuiet()) setTimeout(resumeUi, 0);
     if (was){ try { ipcRenderer.send('close-screensaver'); } catch(e){} } /* es. fine pomodoro: lo screensaver si chiude */
   }
   ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function(ev){
