@@ -1,9 +1,9 @@
 {
-  "version": "1.12.5",
-  "shellApi": 9,
-  "shellHash": "6997db19645704ed27054cf6bef0db0a682620ceb40e8d4a77ef7b1d21533b72",
+  "version": "1.12.6",
+  "shellApi": 10,
+  "shellHash": "7c690ce236c84f69c08aabbb6555adb5b7cf06389bb427c73966caf4f59fae20",
   "files": {
-    "index.html": "96c7e3bb7303b3ed99605692a16c2123882e323f092b7248dbe8013ae03fdbcf",
+    "index.html": "be61add6c77feef4b3c0e53fa2247658261a23dbf36815c003e1c0f5027aab0f",
     "mini.html": "06b9fdbd7a9b28f9f67d54345b02b95878d04bc3a16b0508a96bba87f7e188c0",
     "screensaver.html": "98c2873f51910550656387f05a15d00600e1649038a8660a60182d198b8ca761"
   }

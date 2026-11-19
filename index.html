@@ -233,6 +233,28 @@ body.ui .cpal.open{pointer-events:auto}
 .chips[hidden]{display:none}
 .chip{font-size:max(12px,calc(var(--h)*.06));color:#6f6c64;font-variant-numeric:tabular-nums;padding:4px 12px;border:1px solid #1d1d1d;border-radius:999px}
 .chip b{font-weight:600;color:#9a968c;margin-left:.6em}
+/* --- Colonna di sinistra: icone di avvio di Spotify e Pear --- */
+#lnsp svg{stroke:#4fa774}
+#lnpe svg{stroke:#c9564c}
+#lnpe svg .fl{fill:#c9564c;stroke:none}
+/* --- Info di sistema: discrete, sotto il player --- */
+.dock{display:flex;justify-content:center;max-width:90vw}
+.dock[hidden],.sys[hidden]{display:none}
+.sys{display:flex;align-items:center;gap:0;color:#4a4843;font-size:12px;font-variant-numeric:tabular-nums}
+.sg{position:relative;display:flex;align-items:center;gap:4px;padding:4px 7px;border:0;background:transparent;color:inherit;border-radius:999px;font-size:inherit;font-weight:400}
+.sg:hover,.sg:focus-visible{background:#141414;color:#bdb9ae}
+.sg.low{color:#b8564c}
+.sg svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sg .bolt{display:none;width:11px;height:11px;fill:currentColor;stroke:none;margin-right:-2px}
+.sg .bolt.on{display:block}
+.sg .slash{display:none}
+.sg.off .slash,.sg svg[data-mode="off"] .slash{display:block}
+.sg svg[data-mode="eth"] .wf{display:none}
+.sg svg:not([data-mode="eth"]) .et{display:none}
+.sg .d{opacity:.3}
+.tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:pre;text-align:left;font-size:12px;font-weight:400;line-height:1.45;
+  color:#bdb9ae;background:#141414;border:1px solid #2a2a2a;padding:6px 10px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s;z-index:30}
+.sg:hover .tip,.sg:focus-visible .tip{opacity:1}
 /* --- Posizione nel brano --- */
 .player{flex-wrap:wrap}
 .seek{flex:0 0 100%;display:flex;align-items:center;gap:8px;font-size:10px;color:#5c5c5c;font-variant-numeric:tabular-nums}
@@ -368,6 +390,27 @@ body.ui .cpal.open{pointer-events:auto}
       <span id="tdur">0:00</span>
     </div>
   </div>
+  <div class="dock" id="dock" hidden>
+    <div class="sys" id="sys" hidden>
+      <button class="sg" id="sgbat" aria-label="Batteria: apri il pannello rapido di Windows" hidden>
+        <svg class="bolt" id="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3l-8 11h6l-1 7l8 -11h-6z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7.5" width="16" height="9" rx="2.2"/><path d="M21 10.5v3"/><rect id="batfill" x="4.5" y="9.5" width="12" height="5" rx=".8" fill="currentColor" stroke="none"/></svg>
+        <span id="batpct"></span><span class="tip" id="tipbat"></span>
+      </button>
+      <button class="sg" id="sgwifi" aria-label="Rete: apri il pannello rapido di Windows">
+        <svg id="wifisvg" viewBox="0 0 24 24" aria-hidden="true" data-mode="off">
+          <g class="wf"><path class="a3" d="M3.5 9.5c4.7 -4.7 12.3 -4.7 17 0"/><path class="a2" d="M6.3 12.3a8 8 0 0 1 11.4 0"/><path class="a1" d="M9.2 15.2a4 4 0 0 1 5.6 0"/><path d="M12 18.5h.01"/></g>
+          <g class="et"><path d="M6 4h12v8h-3v4H9v-4H6z"/><path d="M12 16v4"/></g>
+          <path class="slash" d="M4 4l16 16"/>
+        </svg>
+        <span class="tip" id="tipwifi"></span>
+      </button>
+      <button class="sg" id="sgbt" aria-label="Bluetooth: apri il pannello rapido di Windows" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8l10 8l-5 4v-16l5 4l-10 8"/><path class="slash" d="M4 4l16 16"/></svg>
+        <span class="tip" id="tipbt"></span>
+      </button>
+    </div>
+  </div>
 </div><!-- /stage -->
   <div class="hint" id="hint">Premi 'F' per entrare o uscire dallo schermo intero, oppure muovi il mouse per mostrare i comandi</div>
   <nav class="rail" id="rail" aria-label="Comandi">
@@ -381,6 +424,8 @@ body.ui .cpal.open{pointer-events:auto}
     <span class="rsep" id="rsep"></span>
     <button class="rb" id="spconn" data-tip="Collega Spotify" aria-label="Collega Spotify"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M8 11.973c2.5 -1.473 5.5 -.973 7.5 .527"/><path d="M9 15c1.5 -1 4 -1 5 .5"/><path d="M7 9c2 -1 6 -2 10 .5"/></svg></button>
     <button class="rb" id="ytconn" hidden></button>
+    <button class="rb" id="lnsp" data-tip="Apri Spotify" aria-label="Apri Spotify" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M8 11.973c2.5 -1.473 5.5 -.973 7.5 .527"/><path d="M9 15c1.5 -1 4 -1 5 .5"/><path d="M7 9c2 -1 6 -2 10 .5"/></svg></button>
+    <button class="rb" id="lnpe" data-tip="Apri YouTube Music (Pear)" aria-label="Apri YouTube Music (Pear Desktop)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><path class="fl" d="M10.7 9.7v4.6l3.9 -2.3z"/></svg></button>
     <button class="rb" id="upd" data-tip="Riavvia per aggiornare" aria-label="Riavvia per aggiornare" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg></button>
   </nav>
 </div>
@@ -923,7 +968,7 @@ body.ui .cpal.open{pointer-events:auto}
     var any = sp.on || yt.on || pe.on;
     btns.forEach(function(b){ b.hidden = !any; });
     spconn.hidden = sp.on; ytconn.hidden = true;
-    document.getElementById('rsep').hidden = sp.on;
+    sepUpd();
     drawSeek();
   }
   function msg(t){
@@ -1264,6 +1309,91 @@ body.ui .cpal.open{pointer-events:auto}
   }
   render(); pollSp(); pollYt(); pollPe();
   setInterval(function(){ pollSp(); pollYt(); pollPe(); }, 5000);
+  /* ---------- Icone di avvio Spotify / Pear: compaiono solo se l'app è chiusa ---------- */
+  var dockEl = document.getElementById('dock'), sysEl = document.getElementById('sys');
+  var lnSp = document.getElementById('lnsp'), lnPe = document.getElementById('lnpe');
+  var appsUp = null, appsKnown = false;
+  function updDock(){
+    dockEl.hidden = sysEl.hidden;
+  }
+  function drawLaunch(){
+    if (!appsKnown) return;
+    lnSp.hidden = !!(appsUp && appsUp.spotify);
+    lnPe.hidden = !!(appsUp && appsUp.pear);
+    sepUpd(); updDock();
+  }
+  function sepUpd(){ /* separatore della colonna: visibile solo se sotto c'è almeno un pulsante */
+    var g = function(i){ return document.getElementById(i); };
+    var any = !g('spconn').hidden || (g('lnsp') && !g('lnsp').hidden) || (g('lnpe') && !g('lnpe').hidden);
+    g('rsep').hidden = !any;
+  }
+  function pollApps(){
+    ipcRenderer.invoke('apps-running').then(function(r){ appsUp = r || null; appsKnown = true; drawLaunch(); })
+      .catch(function(){ appsUp = null; appsKnown = true; drawLaunch(); });
+  }
+  function afterLaunch(){ setTimeout(pollApps, 2000); setTimeout(pollApps, 5000); }
+  lnSp.onclick = function(e){
+    e.stopPropagation();
+    try { ipcRenderer.send('music-pass'); } catch(x){}
+    window.location.href = 'spotify:';
+    afterLaunch();
+  };
+  lnPe.onclick = function(e){
+    e.stopPropagation();
+    try { ipcRenderer.send('music-pass'); } catch(x){}
+    launchPear(); afterLaunch();
+  };
+  setInterval(pollApps, 5000); pollApps();
+
+  /* ---------- Pillola di sistema: batteria, rete, Bluetooth. Il clic apre il pannello rapido di Windows (Win+A) ---------- */
+  var sgBat = document.getElementById('sgbat'), sgWifi = document.getElementById('sgwifi'), sgBt = document.getElementById('sgbt');
+  var batFill = document.getElementById('batfill'), batPct = document.getElementById('batpct'), boltEl = document.getElementById('bolt');
+  var wifiSvg = document.getElementById('wifisvg');
+  var sysData = null, sysAt = 0;
+  function drawSys(){
+    var d = sysData;
+    if (!d){ sysEl.hidden = true; updDock(); return; }
+    var bat = d.bat;
+    sgBat.hidden = !bat;
+    if (bat){
+      var lv = Math.max(0, Math.min(100, bat.level | 0));
+      batFill.setAttribute('width', String(Math.max(0.6, 12 * lv / 100)));
+      batPct.textContent = lv + '%';
+      boltEl.classList.toggle('on', !!bat.plugged);
+      sgBat.classList.toggle('low', lv <= 15 && !bat.plugged);
+      document.getElementById('tipbat').textContent = 'Batteria ' + lv + '%\n' + (bat.plugged ? 'Collegata alla corrente' : 'Alimentata a batteria');
+    }
+    var w = d.wifi, mode = 'off', sig = 0, txt;
+    if (w && w.connected){
+      mode = 'wifi'; sig = (w.signal >= 0) ? +w.signal : 100; /* segnale sconosciuto: tacche piene */
+      txt = (w.ssid ? 'Wi-Fi: ' + w.ssid : 'Wi-Fi connesso') + (w.signal >= 0 ? '\nSegnale ' + w.signal + '%' : '');
+    }
+    else if (d.eth){ mode = 'eth'; txt = 'Ethernet collegato' + (w ? '\nWi-Fi non connesso' : ''); }
+    else txt = w ? (w.up ? 'Wi-Fi non connesso' : 'Wi-Fi spento') : 'Nessuna rete';
+    wifiSvg.setAttribute('data-mode', mode);
+    var arcs = [['a1', 25], ['a2', 50], ['a3', 75]];
+    arcs.forEach(function(a){ wifiSvg.querySelector('.' + a[0]).classList.toggle('d', mode !== 'wifi' || sig < a[1]); });
+    document.getElementById('tipwifi').textContent = txt;
+    var b = d.bt;
+    sgBt.hidden = !b;
+    if (b){
+      var devs = b.devices || [];
+      sgBt.classList.toggle('off', !b.on);
+      document.getElementById('tipbt').textContent = !b.on ? 'Bluetooth spento'
+        : devs.length ? 'Bluetooth acceso\nCollegati:\n' + devs.map(function(x){ return '\u2013 ' + x; }).join('\n')
+        : 'Bluetooth acceso\nNessun dispositivo collegato';
+    }
+    sysEl.hidden = false; updDock();
+  }
+  function pollSys(force){
+    ipcRenderer.invoke('sys-status', !!force).then(function(d){ if (d){ sysData = d; sysAt = Date.now(); drawSys(); } }).catch(function(){});
+  }
+  [sgBat, sgWifi, sgBt].forEach(function(sg){
+    sg.onclick = function(e){ e.stopPropagation(); try { ipcRenderer.send('open-quick-settings'); } catch(x){} };
+    sg.addEventListener('mouseenter', function(){ if (Date.now() - sysAt > 8000) pollSys(true); }); /* tooltip sempre fresco */
+  });
+  setInterval(function(){ pollSys(false); }, 30000); pollSys(false);
+
   /* ---------- Timer e sveglie ---------- */
   var panel = document.getElementById('panel'), ringDlg = document.getElementById('ringDlg');
   var ringQ = [], ringT = 0, ringAuto = 0;

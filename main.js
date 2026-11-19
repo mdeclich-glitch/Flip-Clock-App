@@ -2,13 +2,14 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, screen, shell, net } = requir
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const pkg = require('./package.json');
 const { autoUpdater } = require('electron-updater');
 
 /* Versione dell'"involucro" (questo file). Aumentala SOLO se cambi main.js in modo che
    i vecchi index.html/mini.html/screensaver.html non funzionino più: in quel caso serve rifare npm run dist. */
-const SHELL_API = 9; // 9: screensaver parte anche con musicPass/focus bloccati (dopo 10 min) + log saver-debug.log
+const SHELL_API = 10; // 10: icone di avvio Spotify/Pear + pillola batteria/Wi-Fi/Bluetooth (nuovi canali IPC apps-running, sys-status, open-quick-settings)
+                     // 9: screensaver parte anche con musicPass/focus bloccati (dopo 10 min) + log saver-debug.log
                      // 8: finestra UniMiB (nuovo canale IPC open-uni, solo domini *.unimib.it)
                      // 7: eccezione schermo intero per Spotify/Pear (nuovo canale IPC music-pass)
                      // 6: mini ridimensionabile + click-through fisso (nuovi canali IPC mini-resize, mini-hot, mini-near)
@@ -26,6 +27,8 @@ let miniWindow = null; // mini orologio sempre in primo piano
 let locked = false; // vero quando lo schermo intero protetto è attivo
 let musicPass = false; // vero mentre l'orologio lascia passare Spotify/Pear davanti a sé
 let musicPassTimer = null;
+let passExtra = false; // vero mentre l'orologio lascia passare anche il pannello rapido di Windows (Win+A)
+let quickTimer = null;
 const MUSIC_FALLBACK_MS = 3 * 60 * 1000; // piano B: se il controllo della finestra attiva non parte, l'orologio torna davanti dopo questo tempo
 let lastMiniState = []; // timer e pomodoro correnti, pubblicati dalla finestra principale
 let miniTarget = { mode: 'clock' }; // cosa mostra il mini: { mode: 'clock' } oppure { mode: 'timer', id }
@@ -558,6 +561,8 @@ function stopFgWatcher() {
 }
 function resetMusicPass() { // azzera lo stato senza toccare la finestra
   musicPass = false;
+  passExtra = false;
+  clearTimeout(quickTimer); quickTimer = null;
   clearTimeout(musicPassTimer); musicPassTimer = null;
   stopFgWatcher();
 }
@@ -598,7 +603,7 @@ function startFgWatcher() {
         buf = buf.slice(i + 1);
         if (!musicPass || fgProc !== p) return;
         if (!name) continue;                        // nessuna finestra attiva (transizione): si ignora
-        if (allowed.has(name)) { fgBad = 0; continue; }
+        if (allowed.has(name) || (passExtra && QS_PROCS.has(name))) { fgBad = 0; continue; }
         if (++fgBad >= 3) { relockFromMusic(); return; } // ~1,5 s su un'altra app (non scatta con un Alt+Tab veloce)
       }
     });
@@ -619,6 +624,130 @@ ipcMain.on('music-pass', () => {
   mainWindow.setAlwaysOnTop(false);
   startFgWatcher();
 });
+
+/* ---------- App di musica in esecuzione, pannello rapido e stato di sistema ---------- */
+/* Quali app di musica sono aperte (processi di Windows): l'orologio mostra l'icona di avvio solo per quelle chiuse */
+ipcMain.handle('apps-running', () => new Promise((resolve) => {
+  if (process.platform !== 'win32') return resolve(null);
+  execFile('tasklist', ['/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 8000, maxBuffer: 8 * 1024 * 1024 }, (err, out) => {
+    if (err || !out) return resolve(null);
+    const set = new Set();
+    out.split(/\r?\n/).forEach((l) => { const m = /^"([^"]+)"/.exec(l); if (m) set.add(m[1].toLowerCase()); });
+    const pear = ['youtube music.exe', 'pear desktop.exe', 'pear.exe'];
+    try { pearCandidates().forEach((p) => pear.push(path.basename(p).toLowerCase())); } catch (e) {}
+    resolve({ spotify: set.has('spotify.exe'), pear: pear.some((n) => set.has(n)) });
+  });
+}));
+
+/* Pannello rapido di Windows (Win+A): simula la scorciatoia. A schermo intero l'orologio si toglie un momento
+   dal "sempre in primo piano" (stesso meccanismo di music-pass) e il blocco riprende quando il pannello si chiude. */
+const QS_PROCS = new Set(['shellhost', 'shellexperiencehost']); // processi che ospitano il pannello rapido (Windows 11)
+const WINA_SCRIPT = String.raw`Add-Type @"
+using System; using System.Runtime.InteropServices;
+public class KB {
+  [DllImport("user32.dll")] public static extern void keybd_event(byte b, byte s, uint f, UIntPtr e);
+}
+"@
+[KB]::keybd_event(0x5B,0,0,[UIntPtr]::Zero)
+[KB]::keybd_event(0x41,0,0,[UIntPtr]::Zero)
+[KB]::keybd_event(0x41,0,2,[UIntPtr]::Zero)
+[KB]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)`;
+function sendWinA() {
+  if (process.platform !== 'win32') return;
+  try {
+    const b64 = Buffer.from(WINA_SCRIPT, 'utf16le').toString('base64');
+    spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', b64],
+      { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
+  } catch (e) {}
+}
+ipcMain.on('open-quick-settings', () => {
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  if (locked && win) {
+    musicPass = true; passExtra = true; fgBad = 0;
+    win.setAlwaysOnTop(false);
+    startFgWatcher();
+    clearTimeout(quickTimer);
+    quickTimer = setTimeout(() => { if (passExtra) relockFromMusic(); }, 45000); // sicurezza: dopo 45 s il blocco riprende comunque
+  }
+  setTimeout(sendWinA, locked ? 150 : 0);
+});
+
+/* Stato di sistema (batteria, Wi-Fi/Ethernet, Bluetooth) letto con un solo PowerShell, con cache.
+   Wi-Fi: connesso = scheda attiva (non serve netsh). SSID e segnale vengono da netsh se disponibile (da Windows 11 24H2 richiede i servizi di
+   localizzazione attivi); altrimenti il nome rete viene dal profilo di connessione e il segnale resta sconosciuto (-1). */
+const SYS_SCRIPT = String.raw`$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$o = [ordered]@{ bat = $null; wifi = $null; eth = $false; bt = $null }
+try {
+  $b = Get-CimInstance Win32_Battery | Select-Object -First 1
+  if ($b) { $o.bat = @{ level = [int]$b.EstimatedChargeRemaining; plugged = (@(1,4,5) -notcontains [int]$b.BatteryStatus) } }
+} catch {}
+try {
+  $ad = @(Get-NetAdapter -Physical)
+  $w = $ad | Where-Object { $_.PhysicalMediaType -match '802\.11' -or $_.InterfaceDescription -match 'Wi-?Fi|Wireless|WLAN|802\.11' -or $_.Name -match 'Wi-?Fi|WLAN|Wireless' } | Select-Object -First 1
+  $o.eth = [bool]($ad | Where-Object { $_.Status -eq 'Up' -and $_.PhysicalMediaType -eq '802.3' -and $_.InterfaceDescription -notmatch 'Wi-?Fi|Wireless|WLAN' })
+  if ($w) {
+    $up = ($w.Status -eq 'Up')
+    $wf = @{ present = $true; up = $up; connected = $up; ssid = ''; signal = -1 }
+    if ($up) {
+      foreach ($l in (netsh wlan show interfaces)) {
+        if ($l -match '^\s+SSID\s*:\s*(.+)$') { $wf.ssid = $Matches[1].Trim() }
+        elseif ($l -match ':\s*(\d{1,3})%\s*$') { $wf.signal = [int]$Matches[1] }
+      }
+      if (-not $wf.ssid) { $p = Get-NetConnectionProfile -InterfaceAlias $w.Name | Select-Object -First 1; if ($p) { $wf.ssid = $p.Name } }
+    }
+    $o.wifi = $wf
+  }
+} catch {}
+try {
+  Add-Type -AssemblyName System.Runtime.WindowsRuntime
+  $at = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -like 'IAsyncOperation*' })[0]
+  function Aw($t, $rt) { $n = $at.MakeGenericMethod($rt).Invoke($null, @($t)); [void]$n.Wait(-1); $n.Result }
+  [void][Windows.Devices.Radios.Radio, Windows.System.Devices, ContentType = WindowsRuntime]
+  [void][Windows.Devices.Radios.RadioAccessStatus, Windows.System.Devices, ContentType = WindowsRuntime]
+  [void](Aw ([Windows.Devices.Radios.Radio]::RequestAccessAsync()) ([Windows.Devices.Radios.RadioAccessStatus]))
+  $rs = Aw ([Windows.Devices.Radios.Radio]::GetRadiosAsync()) ([System.Collections.Generic.IReadOnlyList[Windows.Devices.Radios.Radio]])
+  $r = $rs | Where-Object { $_.Kind -eq 'Bluetooth' } | Select-Object -First 1
+  if ($r) {
+    $on = ($r.State -eq 'On'); $dev = @()
+    if ($on) {
+      $names = @{}
+      Get-PnpDevice -Class Bluetooth | Where-Object { $_.InstanceId -match '^BTH(ENUM|LE)\\DEV_' } | ForEach-Object {
+        $c = (Get-PnpDeviceProperty -InstanceId $_.InstanceId -KeyName '{83DA6326-97A6-4088-9453-A1923F573B29} 15').Data
+        if ($c -eq $true -and $_.FriendlyName) { $names[$_.FriendlyName] = 1 }
+      }
+      $dev = @($names.Keys)
+    }
+    $o.bt = @{ on = $on; devices = $dev }
+  }
+} catch {}
+[Console]::Out.WriteLine(($o | ConvertTo-Json -Depth 4 -Compress))`;
+let sysCache = null, sysAt = 0, sysBusy = null;
+function getSys(force) {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  if (sysBusy) return sysBusy;
+  if (sysCache && Date.now() - sysAt < (force ? 8000 : 25000)) return Promise.resolve(sysCache);
+  sysBusy = new Promise((resolve) => {
+    let out = '', done = false, p = null, to = null;
+    const fin = () => {
+      if (done) return;
+      done = true; clearTimeout(to);
+      try { sysCache = JSON.parse(out.trim().split(/\r?\n/).pop()); sysAt = Date.now(); } catch (e) {}
+      sysBusy = null; resolve(sysCache);
+    };
+    try {
+      const b64 = Buffer.from(SYS_SCRIPT, 'utf16le').toString('base64');
+      p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', b64],
+        { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+      p.stdout.setEncoding('utf8');
+      p.stdout.on('data', (c) => { out += c; });
+      p.on('error', fin); p.on('close', fin);
+      to = setTimeout(() => { try { p.kill(); } catch (e) {} fin(); }, 25000);
+    } catch (e) { fin(); }
+  });
+  return sysBusy;
+}
+ipcMain.handle('sys-status', (e, force) => getSys(!!force));
 
 ipcMain.on('set-fullscreen', (event, makeFullscreen) => {
   resetMusicPass();
